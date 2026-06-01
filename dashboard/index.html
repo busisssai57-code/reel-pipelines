@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
-  <title>Reel Pipeline — Studio</title>
+  <title>Reel Pipeline — AI Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -22,1372 +22,378 @@
       --ok: #10b981;
       --danger: #ef4444;
       --warn: #f59e0b;
-      --sidebar-w: 240px;
-      --font: 'Inter', system-ui, -apple-system, sans-serif;
-      --r1: 6px;
-      --r2: 12px;
-      --r3: 16px;
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
-      --shadow-md: 0 4px 24px rgba(0,0,0,0.5);
-      --shadow-glow: 0 0 40px rgba(99,102,241,0.15);
     }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    html, body {
-      width: 100%;
-      height: 100%;
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--font);
-      font-size: 14px;
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    body {
-      overflow: hidden;
-    }
-
-    /* Layout */
-    .app {
-      display: grid;
-      grid-template-columns: var(--sidebar-w) 1fr;
-      grid-template-rows: auto 1fr;
-      grid-template-areas: "sidebar topbar" "sidebar main";
-      height: 100vh;
-    }
-
-    .sidebar {
-      grid-area: sidebar;
-      background: var(--surface);
-      border-right: 1px solid var(--line);
-      display: flex;
-      flex-direction: column;
-      overflow-y: auto;
-      padding: 24px 16px;
-      gap: 32px;
-    }
-
-    .topbar {
-      grid-area: topbar;
-      background: var(--surface);
-      border-bottom: 1px solid var(--line);
-      padding: 16px 32px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 64px;
-    }
-
-    main {
-      grid-area: main;
-      overflow-y: auto;
-      padding: 32px;
-    }
-
-    /* Typography */
-    h1 {
-      font-size: 28px;
-      font-weight: 700;
-      margin-bottom: 8px;
-    }
-
-    h2 {
-      font-size: 20px;
-      font-weight: 600;
-      margin-bottom: 16px;
-    }
-
-    h3 {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 12px;
-    }
-
-    /* Brand */
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-weight: 700;
-      font-size: 16px;
-      margin-bottom: 32px;
-    }
-
-    .brand-dot {
-      width: 24px;
-      height: 24px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-    }
-
-    /* Navigation */
-    nav {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      flex: 1;
-    }
-
-    .nav-link {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 12px;
-      color: var(--muted);
-      text-decoration: none;
-      font-weight: 500;
-      border-radius: var(--r1);
-      cursor: pointer;
-      transition: all 0.2s ease;
-      border: none;
-      background: transparent;
-      font-family: var(--font);
-      font-size: 14px;
-    }
-
-    .nav-link:hover {
-      background: var(--surface2);
-      color: var(--text);
-    }
-
-    .nav-link.active {
-      background: rgba(99, 102, 241, 0.15);
-      color: var(--accent);
-    }
-
-    .nav-link .ico {
-      width: 18px;
-      text-align: center;
-    }
-
-    /* System status */
-    .system-status {
-      padding: 16px;
-      background: var(--surface2);
-      border-radius: var(--r2);
-      border: 1px solid var(--line);
-      font-size: 12px;
-    }
-
-    .status-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-
-    .status-item:last-child {
-      margin-bottom: 0;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--ok);
-    }
-
-    .status-dot.warn {
-      background: var(--warn);
-    }
-
-    .status-dot.error {
-      background: var(--danger);
-    }
-
-    /* Glass morphism card */
-    .glass-card {
-      background: var(--glass);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid var(--glass-border);
-      border-radius: var(--r3);
-      padding: 20px;
-      box-shadow: var(--shadow-md);
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .glass-card:hover {
-      transform: translateY(-4px);
-      box-shadow: var(--shadow-glow);
-    }
-
-    /* Stat card */
-    .stat-card {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 16px;
-      align-items: flex-start;
-    }
-
-    .stat-value {
-      font-size: 36px;
-      font-weight: 800;
-      color: var(--text);
-    }
-
-    .stat-label {
-      font-size: 12px;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .stat-trend {
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .stat-trend.up {
-      color: var(--ok);
-    }
-
-    .stat-trend.down {
-      color: var(--danger);
-    }
-
-    /* Grid layouts */
-    .grid-2 {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 24px;
-    }
-
-    .grid-3 {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-    }
-
-    .grid-4 {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-    }
-
-    /* Buttons */
-    button {
-      font-family: var(--font);
-      font-size: 14px;
-      font-weight: 600;
-      padding: 10px 16px;
-      border: none;
-      border-radius: var(--r1);
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .btn-primary {
-      background: var(--accent);
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background: #5558e3;
-    }
-
-    .btn-danger {
-      background: var(--danger);
-      color: white;
-    }
-
-    .btn-danger:hover {
-      background: #d23130;
-    }
-
-    .btn-secondary {
-      background: var(--surface2);
-      color: var(--text);
-      border: 1px solid var(--line);
-    }
-
-    .btn-secondary:hover {
-      background: var(--surface2);
-      border-color: var(--muted);
-    }
-
-    /* Status badges */
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    .badge.pending {
-      background: rgba(245, 158, 11, 0.15);
-      color: var(--warn);
-    }
-
-    .badge.approved {
-      background: rgba(16, 185, 129, 0.15);
-      color: var(--ok);
-    }
-
-    .badge.rejected {
-      background: rgba(239, 68, 68, 0.15);
-      color: var(--danger);
-    }
-
-    /* Animations */
-    @keyframes card-hover-lift {
-      to {
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-glow);
-      }
-    }
-
-    @keyframes progress-fill {
-      from {
-        stroke-dashoffset: 251.2;
-      }
-      to {
-        stroke-dashoffset: calc(251.2 * (1 - var(--progress, 0)));
-      }
-    }
-
-    @keyframes status-pulse {
-      0%, 100% {
-        opacity: 0.7;
-        transform: scale(1);
-      }
-      50% {
-        opacity: 1;
-        transform: scale(1.3);
-      }
-    }
-
-    @keyframes shimmer {
-      0% {
-        background-position: -200% 0;
-      }
-      100% {
-        background-position: 200% 0;
-      }
-    }
-
-    /* Views */
-    .view {
-      display: none;
-    }
-
-    .view.active {
-      display: block;
-    }
-
-    /* Dashboard specific */
-    .stat-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      margin-bottom: 32px;
-    }
-
-    .pipeline-health {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .health-bar {
-      flex: 1;
-      height: 8px;
-      background: var(--surface2);
-      border-radius: 4px;
-      overflow: hidden;
-    }
-
-    .health-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
-      transition: width 0.8s ease;
-    }
-
-    .health-label {
-      min-width: 40px;
-      text-align: right;
-      font-weight: 600;
-    }
-
-    /* Reel cards grid */
-    .reels-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-    }
-
-    .reel-card {
-      position: relative;
-      overflow: hidden;
-      aspect-ratio: 9/16;
-      background: var(--surface2);
-      border-radius: var(--r3);
-      border: 1px solid var(--line);
-    }
-
-    .reel-thumbnail {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .reel-overlay {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-      padding: 16px;
-      color: white;
-    }
-
-    .reel-title {
-      font-weight: 600;
-      font-size: 14px;
-      margin-bottom: 8px;
-    }
-
-    .reel-badges {
-      display: flex;
-      gap: 8px;
-    }
-
-    /* Agent chip */
-    .agent-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      background: var(--surface2);
-      border: 1px solid var(--line);
-      border-radius: var(--r2);
-      font-size: 12px;
-    }
-
-    .agent-status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--ok);
-      animation: status-pulse 2s ease-in-out infinite;
-    }
-
-    .agent-status-dot.open {
-      background: var(--danger);
-    }
-
-    .agent-status-dot.half-open {
-      background: var(--warn);
-    }
-
-    /* Event feed */
-    .event-feed {
-      max-height: 400px;
-      overflow-y: auto;
-    }
-
-    .event-item {
-      padding: 12px 0;
-      border-bottom: 1px solid var(--line);
-      font-size: 12px;
-    }
-
-    .event-item:last-child {
-      border-bottom: none;
-    }
-
-    .event-time {
-      color: var(--muted);
-      margin-bottom: 4px;
-    }
-
-    .event-text {
-      color: var(--text);
-    }
-
-    /* Review queue */
-    .review-card {
-      display: grid;
-      grid-template-columns: 200px 1fr;
-      gap: 20px;
-      align-items: flex-start;
-    }
-
-    .review-thumbnail {
-      width: 100%;
-      aspect-ratio: 9/16;
-      object-fit: cover;
-      border-radius: var(--r2);
-    }
-
-    .review-content {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .review-metadata {
-      display: flex;
-      gap: 12px;
-    }
-
-    .review-script {
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .review-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 12px;
-    }
-
-    /* Render studio */
-    .studio-layout {
-      display: grid;
-      grid-template-columns: 320px 1fr;
-      gap: 32px;
-    }
-
-    .progress-ring-container {
-      width: 200px;
-      height: 200px;
-      margin: 0 auto 20px;
-    }
-
-    .progress-ring {
-      width: 100%;
-      height: 100%;
-    }
-
-    .progress-track {
-      fill: none;
-      stroke: var(--surface2);
-      stroke-width: 6;
-    }
-
-    .progress-fill {
-      fill: none;
-      stroke: url(#gradientAccent);
-      stroke-width: 6;
-      stroke-linecap: round;
-      transition: stroke-dashoffset 0.5s ease;
-    }
-
-    .stage-list {
-      list-style: none;
-    }
-
-    .stage-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px;
-      margin-bottom: 8px;
-      background: var(--surface2);
-      border-radius: var(--r1);
-      font-size: 13px;
-    }
-
-    .stage-icon {
-      min-width: 20px;
-      text-align: center;
-      font-size: 16px;
-    }
-
-    /* Agents view */
-    .agent-card {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .agent-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .agent-name {
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .breaker-badge {
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 600;
-    }
-
-    .breaker-badge.closed {
-      background: rgba(16, 185, 129, 0.15);
-      color: var(--ok);
-    }
-
-    .breaker-badge.open {
-      background: rgba(239, 68, 68, 0.15);
-      color: var(--danger);
-    }
-
-    .breaker-badge.half-open {
-      background: rgba(245, 158, 11, 0.15);
-      color: var(--warn);
-    }
-
-    /* Settings */
-    .settings-section {
-      margin-bottom: 32px;
-    }
-
-    .section-title {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 16px;
-      color: var(--text);
-    }
-
-    .form-group {
-      margin-bottom: 16px;
-    }
-
-    .form-label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .form-input {
-      width: 100%;
-      padding: 10px 12px;
-      background: var(--surface2);
-      border: 1px solid var(--line);
-      border-radius: var(--r1);
-      color: var(--text);
-      font-family: var(--font);
-      font-size: 14px;
-      transition: border-color 0.2s ease;
-    }
-
-    .form-input:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    .form-input[aria-invalid="true"] {
-      border-color: var(--danger);
-    }
-
-    .field-error {
-      display: none;
-      color: var(--danger);
-      font-size: 12px;
-      margin-top: 4px;
-    }
-
-    /* Responsive */
-    @media (max-width: 1200px) {
-      .stat-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-      .reels-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-      .grid-4 {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    @media (max-width: 768px) {
-      .app {
-        grid-template-columns: 1fr;
-        grid-template-areas: "topbar" "main";
-      }
-      .sidebar {
-        display: none;
-      }
-      .stat-grid {
-        grid-template-columns: 1fr;
-      }
-      .reels-grid {
-        grid-template-columns: 1fr;
-      }
-      .studio-layout {
-        grid-template-columns: 1fr;
-      }
-      .review-card {
-        grid-template-columns: 1fr;
-      }
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+    body { overflow: hidden; }
+
+    .app { display: grid; grid-template-columns: 280px 1fr; grid-template-rows: 80px 1fr; height: 100vh; }
+    .sidebar { grid-column: 1; grid-row: 1 / 3; background: var(--surface); border-right: 1px solid var(--line); padding: 24px; overflow-y: auto; }
+    .topbar { grid-column: 2; grid-row: 1; background: var(--surface); border-bottom: 1px solid var(--line); padding: 20px 40px; display: flex; align-items: center; justify-content: space-between; }
+    main { grid-column: 2; grid-row: 2; overflow-y: auto; padding: 40px; }
+
+    .brand { font-weight: 700; font-size: 18px; margin-bottom: 40px; display: flex; align-items: center; gap: 12px; color: var(--text); }
+    .brand::before { content: '🎬'; font-size: 24px; }
+
+    nav { display: flex; flex-direction: column; gap: 8px; margin-bottom: 40px; }
+    .nav-link { padding: 12px 16px; border-radius: 8px; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 14px; transition: all 0.3s; display: flex; align-items: center; gap: 12px; }
+    .nav-link:hover { background: var(--glass); color: var(--text); }
+    .nav-link.active { background: var(--accent); color: white; }
+
+    .view { display: none; }
+    .view.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    h1 { font-size: 32px; font-weight: 800; }
+    h2 { font-size: 20px; font-weight: 700; margin-bottom: 24px; }
+
+    .glass-card { background: var(--glass); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 16px; padding: 24px; transition: all 0.3s; }
+    .glass-card:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); transform: translateY(-4px); }
+
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+
+    .btn { padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 14px; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: #5a5dd4; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(99,102,241,0.3); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary.loading { opacity: 0.7; pointer-events: none; }
+    .btn-secondary { background: var(--surface2); color: var(--text); }
+    .btn-secondary:hover { background: var(--line); }
+
+    .agent-card { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+    .agent-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .agent-name { font-weight: 600; color: var(--text); }
+    .agent-status { font-size: 12px; padding: 4px 8px; border-radius: 4px; }
+    .agent-status.running { background: rgba(59,130,246,0.2); color: #3b82f6; animation: pulse 2s infinite; }
+    .agent-status.idle { background: rgba(107,114,128,0.2); color: var(--muted); }
+    .agent-status.error { background: rgba(239,68,68,0.2); color: var(--danger); }
+
+    .event-timeline { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
+    .event-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px; background: rgba(255,255,255,0.02); border-radius: 8px; border-left: 3px solid var(--accent); }
+    .event-icon { font-size: 20px; }
+    .event-content { flex: 1; }
+    .event-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .event-time { font-size: 11px; color: var(--muted); }
+
+    .progress-ring { width: 200px; height: 200px; transform: rotate(-90deg); }
+    .progress-ring__circle { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
+    .progress-text { text-align: center; margin-top: -140px; }
+    .progress-pct { font-size: 48px; font-weight: 800; }
+    .progress-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    .stage-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+    .stage-item { display: flex; flex-direction: column; align-items: center; padding: 16px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid var(--line); }
+    .stage-icon { font-size: 28px; margin-bottom: 8px; animation: none; }
+    .stage-icon.active { animation: spin 2s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .stage-name { font-size: 12px; font-weight: 600; text-align: center; }
+    .stage-status { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge.active { background: rgba(16,185,129,0.2); color: var(--ok); }
+    .badge.inactive { background: rgba(107,114,128,0.2); color: var(--muted); }
+
+    .stat-box { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; padding: 20px; text-align: center; }
+    .stat-value { font-size: 36px; font-weight: 800; color: var(--accent); margin-bottom: 8px; }
+    .stat-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
+    .modal.active { display: flex; animation: fadeIn 0.3s ease; }
+    .modal-content { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 40px; max-width: 600px; max-height: 80vh; overflow-y: auto; }
+    .modal-title { font-size: 24px; font-weight: 800; margin-bottom: 20px; }
+    .modal-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: var(--muted); font-size: 24px; cursor: pointer; }
+
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 24px; color: var(--text); font-size: 14px; z-index: 2000; animation: slideUp 0.3s ease; }
+    @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .toast.success { border-left: 3px solid var(--ok); }
+    .toast.error { border-left: 3px solid var(--danger); }
+
+    input, textarea { background: var(--surface2); border: 1px solid var(--line); border-radius: 8px; padding: 12px; color: var(--text); font-family: inherit; }
+    input:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
   </style>
 </head>
 <body>
   <div class="app">
     <div class="sidebar">
-      <div class="brand">
-        <div class="brand-dot"></div>
-        <span>Reel Studio</span>
-      </div>
-      <nav>
-        <button class="nav-link active" data-view="dash">
-          <span class="ico">🏠</span>
-          <span>Dashboard</span>
-        </button>
-        <button class="nav-link" data-view="queue">
-          <span class="ico">📋</span>
-          <span>Review Queue</span>
-        </button>
-        <button class="nav-link" data-view="render">
-          <span class="ico">🎬</span>
-          <span>Render Studio</span>
-        </button>
-        <button class="nav-link" data-view="agents">
-          <span class="ico">⚙️</span>
-          <span>Agents</span>
-        </button>
-        <button class="nav-link" data-view="variants">
-          <span class="ico">✨</span>
-          <span>Variant Lab</span>
-        </button>
-        <button class="nav-link" data-view="episodes">
-          <span class="ico">▷</span>
-          <span>Episodes</span>
-        </button>
-        <button class="nav-link" data-view="sched">
-          <span class="ico">📅</span>
-          <span>Schedule</span>
-        </button>
-        <button class="nav-link" data-view="settings">
-          <span class="ico">⚡</span>
-          <span>Settings</span>
-        </button>
-        <hr style="border:none; border-top:1px solid var(--line); margin:16px 0;">
-        <button class="nav-link" data-view="team">
-          <span class="ico">🤖</span>
-          <span>AI Team</span>
-        </button>
-        <button class="nav-link" data-view="trends">
-          <span class="ico">📈</span>
-          <span>Trends</span>
-        </button>
-        <button class="nav-link" data-view="engagement">
-          <span class="ico">💬</span>
-          <span>Engagement</span>
-        </button>
-        <button class="nav-link" data-view="patches">
-          <span class="ico">🔧</span>
-          <span>Patches</span>
-        </button>
+      <div class="brand">Reel Studio</div>
+      <nav id="nav">
+        <button class="nav-link active" data-view="dashboard">📊 Dashboard</button>
+        <button class="nav-link" data-view="render">🎬 Render</button>
+        <button class="nav-link" data-view="agents">🤖 AI Agents</button>
+        <button class="nav-link" data-view="trends">📈 Trends</button>
+        <button class="nav-link" data-view="engagement">💬 Engagement</button>
+        <button class="nav-link" data-view="drafts">📋 Drafts</button>
       </nav>
-      <div class="system-status">
-        <div class="status-item">
-          <div class="status-dot" id="statusBackend"></div>
-          <span>Backend</span>
-        </div>
-        <div class="status-item">
-          <div class="status-dot" id="statusComfy"></div>
-          <span>ComfyUI</span>
-        </div>
-        <div class="status-item">
-          <div class="status-dot" id="statusQwen"></div>
-          <span>Qwen</span>
-        </div>
-      </div>
     </div>
 
     <div class="topbar">
       <h1 id="pageTitle">Dashboard</h1>
       <div style="display:flex; gap:12px;">
-        <button class="btn-secondary" id="refreshBtn">↻ Refresh</button>
-        <button class="btn-primary" id="actionBtn" style="display:none;">Generate</button>
+        <button class="btn btn-secondary" id="refreshBtn">⟳ Refresh</button>
+        <button class="btn btn-primary" id="statusBtn">● Offline</button>
       </div>
     </div>
 
     <main>
       <!-- Dashboard View -->
-      <div class="view active" id="viewDash">
-        <div class="stat-grid">
-          <div class="glass-card stat-card">
-            <div>
-              <div class="stat-value" id="statTotal">0</div>
-              <div class="stat-label">Total Reels</div>
-            </div>
-            <div class="stat-trend up">↑ <span id="statTotalTrend">0</span></div>
+      <div class="view active" id="dashboard">
+        <div class="grid-4" style="margin-bottom: 40px;">
+          <div class="stat-box">
+            <div class="stat-value" id="statTotal">0</div>
+            <div class="stat-label">Total Reels</div>
           </div>
-          <div class="glass-card stat-card">
-            <div>
-              <div class="stat-value" id="statPending">0</div>
-              <div class="stat-label">Pending Review</div>
-            </div>
-            <div class="stat-trend" id="statPendingTrend"></div>
+          <div class="stat-box">
+            <div class="stat-value" id="statPending">0</div>
+            <div class="stat-label">Pending</div>
           </div>
-          <div class="glass-card stat-card">
-            <div>
-              <div class="stat-value" id="statApproved">0</div>
-              <div class="stat-label">Approved This Week</div>
-            </div>
-            <div class="stat-trend up">↑ <span id="statApprovedTrend">0</span></div>
+          <div class="stat-box">
+            <div class="stat-value" id="statApproved">0</div>
+            <div class="stat-label">Approved</div>
           </div>
-          <div class="glass-card stat-card">
-            <div>
-              <div class="stat-value" id="statPublished">0</div>
-              <div class="stat-label">Published</div>
-            </div>
-            <div class="stat-trend up">↑ <span id="statPublishedTrend">0</span></div>
+          <div class="stat-box">
+            <div class="stat-value" id="statPublished">0</div>
+            <div class="stat-label">Published</div>
           </div>
         </div>
 
-        <h2>Pipeline Health</h2>
-        <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:20px; margin-bottom:32px;">
-          <div class="glass-card">
-            <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
-              <span style="font-weight:600;">Pipeline A</span>
-              <span id="healthA" style="color:var(--muted); font-size:12px;">0/21</span>
-            </div>
-            <div class="health-bar">
-              <div class="health-fill" id="healthBarA" style="width:0%"></div>
-            </div>
-          </div>
-          <div class="glass-card">
-            <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
-              <span style="font-weight:600;">Pipeline B</span>
-              <span id="healthB" style="color:var(--muted); font-size:12px;">0/21</span>
-            </div>
-            <div class="health-bar">
-              <div class="health-fill" id="healthBarB" style="width:0%"></div>
-            </div>
-          </div>
-        </div>
+        <h2>AI Team Status</h2>
+        <div id="agentsList"></div>
 
-        <h2>Recent Reels</h2>
-        <div class="reels-grid" id="reelsGrid">
-          <div class="glass-card" style="aspect-ratio:9/16; justify-content:center; align-items:center;">
-            <div style="text-align:center; color:var(--muted);">
-              <div style="font-size:32px; margin-bottom:8px;">📺</div>
-              <div>No reels yet</div>
-            </div>
-          </div>
-        </div>
+        <h2 style="margin-top: 40px;">Live Event Stream</h2>
+        <div id="eventStream" style="max-height: 300px; overflow-y: auto;"></div>
+      </div>
 
-        <div style="margin-top:32px; display:grid; grid-template-columns:1fr 2fr; gap:32px;">
+      <!-- Render View -->
+      <div class="view" id="render">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
           <div>
-            <h2>Live agent mesh</h2>
-            <div class="glass-card agentpulse" style="display:flex; flex-wrap:wrap; gap:8px;">
-              <span style="color:var(--muted); font-size:12px;">Loading agents...</span>
-            </div>
-          </div>
-          <div>
-            <h2>Trace stream</h2>
-            <div class="glass-card event-feed" id="eventFeed">
-              <div style="color:var(--muted); font-size:12px;">Awaiting events...</div>
-            </div>
-          </div>
-        </div>
-      </div>
+            <h2>Start Production</h2>
+            <div class="glass-card" style="margin-bottom: 20px;">
+              <label style="display: block; margin-bottom: 12px; font-weight: 600;">Topic</label>
+              <input type="text" id="renderTopic" placeholder="E.g., Why the ocean is salty" style="width: 100%; margin-bottom: 16px;">
 
-      <!-- Review Queue View -->
-      <div class="view" id="viewQueue">
-        <div style="display:flex; gap:12px; margin-bottom:24px; align-items:center;">
-          <select id="pipelineFilter" style="padding:8px; background:var(--surface2); border:1px solid var(--line); border-radius:var(--r1); color:var(--text);">
-            <option value="">All Pipelines</option>
-            <option value="A">Pipeline A</option>
-            <option value="B">Pipeline B</option>
-          </select>
-          <select id="statusFilter" style="padding:8px; background:var(--surface2); border:1px solid var(--line); border-radius:var(--r1); color:var(--text);">
-            <option value="">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-        </div>
-        <div id="queueContainer" style="display:flex; flex-direction:column; gap:20px;">
-          <div class="glass-card" style="text-align:center; padding:40px;">
-            <div style="color:var(--muted);">No drafts to review</div>
-          </div>
-        </div>
-      </div>
+              <label style="display: block; margin-bottom: 12px; font-weight: 600;">Visual Source</label>
+              <select id="renderSource" style="width: 100%; padding: 12px; background: var(--surface2); border: 1px solid var(--line); border-radius: 8px; color: var(--text); margin-bottom: 20px;">
+                <option value="auto">Auto (AI Generation)</option>
+                <option value="stock">Stock Footage</option>
+                <option value="hybrid">Hybrid Mix</option>
+              </select>
 
-      <!-- Render Studio View -->
-      <div class="view" id="viewRender">
-        <div class="studio-layout">
-          <div>
-            <h3 style="margin-bottom:20px;">Render Progress</h3>
-            <div class="progress-ring-container">
-              <svg class="progress-ring" viewBox="0 0 90 90">
-                <defs>
-                  <linearGradient id="gradientAccent" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style="stop-color:var(--accent);stop-opacity:1" />
-                    <stop offset="100%" style="stop-color:var(--accent2);stop-opacity:1" />
-                  </linearGradient>
-                </defs>
-                <circle class="progress-track" cx="45" cy="45" r="40"/>
-                <circle class="progress-fill" id="ringFill" cx="45" cy="45" r="40" stroke-dasharray="251.2" stroke-dashoffset="251.2"/>
-              </svg>
+              <button class="btn btn-primary" id="startRenderBtn" style="width: 100%; padding: 16px;">
+                <span id="renderBtnText">▶ Start Render</span>
+              </button>
             </div>
-            <div style="text-align:center;">
-              <div style="font-size:24px; font-weight:700; margin-bottom:4px;" id="progressPct">0%</div>
-              <div style="color:var(--muted); font-size:12px;">Generating reel...</div>
-            </div>
-          </div>
-          <div>
-            <h3 style="margin-bottom:16px;">Pipeline Stages</h3>
-            <ol class="stage-list">
-              <li class="stage-item">
-                <span class="stage-icon" id="icon-script">⏳</span>
-                <span>Script Generation</span>
-              </li>
-              <li class="stage-item">
-                <span class="stage-icon" id="icon-tts">⏳</span>
-                <span>Text-to-Speech</span>
-              </li>
-              <li class="stage-item">
-                <span class="stage-icon" id="icon-visuals">⏳</span>
-                <span>Visuals</span>
-              </li>
-              <li class="stage-item">
-                <span class="stage-icon" id="icon-subtitles">⏳</span>
-                <span>Subtitles</span>
-              </li>
-              <li class="stage-item">
-                <span class="stage-icon" id="icon-music">⏳</span>
-                <span>Music</span>
-              </li>
-              <li class="stage-item">
-                <span class="stage-icon" id="icon-export">⏳</span>
-                <span>Export</span>
-              </li>
-            </ol>
-            <div class="glass-card" style="margin-top:20px;">
-              <div style="display:flex; flex-direction:column; gap:12px;">
-                <input type="text" id="topicInput" placeholder="Enter topic..." class="form-input" style="margin-bottom:8px;">
-                <select id="visualSourceSelect" class="form-input" style="margin-bottom:8px;">
-                  <option value="auto">Auto (Hunyuan if available)</option>
-                  <option value="hunyuan">Force Hunyuan Video</option>
-                  <option value="images">Force Images</option>
-                </select>
-                <button class="btn-primary" id="startRenderBtn" style="width:100%;">Start Render</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- Agents View -->
-      <div class="view" id="viewAgents">
-        <div class="grid-4" id="agentsGrid">
-          <div class="glass-card agent-card">
-            <div class="agent-header">
-              <div class="agent-name">Loading...</div>
-              <div class="breaker-badge closed">CLOSED</div>
-            </div>
-            <div style="color:var(--muted); font-size:12px;">Agents initializing...</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Variant Lab View -->
-      <div class="view" id="viewVariants">
-        <div class="glass-card" style="display:flex; gap:12px; margin-bottom:24px;">
-          <input type="text" placeholder="Topic..." class="form-input" style="flex:1;">
-          <button class="btn-primary">Generate Variants</button>
-        </div>
-        <div class="grid-2" id="variantsGrid">
-          <div style="text-align:center; color:var(--muted); padding:40px;">
-            <div>No variants generated</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Episodes View -->
-      <div class="view" id="viewEpisodes">
-        <h1>Episodes <span class="muted" style="font-size:14px; color:var(--muted);">· episodes mode</span></h1>
-        <div class="grid-2" style="margin-top:20px;">
-          <div class="glass-card" style="grid-column:1;">
-            <h3>New Series</h3>
-            <div style="display:flex; flex-direction:column; gap:12px; margin-top:16px;">
-              <input type="text" placeholder="Series name..." class="form-input">
-              <button class="btn-primary" style="width:100%;">Create Series</button>
-            </div>
-          </div>
-          <div class="glass-card">
-            <h3>Series List</h3>
-            <div style="margin-top:16px; color:var(--muted); font-size:12px;">No series yet</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Schedule View -->
-      <div class="view" id="viewSched">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-          <h2>Publish Schedule</h2>
-          <div style="display:flex; gap:12px;">
-            <button class="btn-secondary">◀ Previous Week</button>
-            <span id="weekDisplay" style="min-width:120px; text-align:center; font-weight:600;"></span>
-            <button class="btn-secondary">Next Week ▶</button>
-          </div>
-        </div>
-        <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:12px;" id="scheduleGrid">
-          <div class="glass-card" style="text-align:center; padding:20px;">
-            <div style="color:var(--muted); font-size:12px;">No scheduled reels</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Settings View -->
-      <div class="view" id="viewSettings">
-        <div style="max-width:600px;">
-          <div class="settings-section">
-            <div class="section-title">API Keys</div>
             <div class="glass-card">
-              <div class="form-group">
-                <label class="form-label">Pexels Key</label>
-                <input type="password" id="pexelsKey" class="form-input">
+              <h3 style="margin-bottom: 16px; font-weight: 600;">Pipeline Stages</h3>
+              <div class="stage-list" id="stageList">
+                <div class="stage-item">
+                  <div class="stage-icon">📝</div>
+                  <div class="stage-name">Script</div>
+                  <div class="stage-status" id="stage-script">Waiting</div>
+                </div>
+                <div class="stage-item">
+                  <div class="stage-icon">🎤</div>
+                  <div class="stage-name">TTS</div>
+                  <div class="stage-status" id="stage-tts">Waiting</div>
+                </div>
+                <div class="stage-item">
+                  <div class="stage-icon">🎨</div>
+                  <div class="stage-name">Visuals</div>
+                  <div class="stage-status" id="stage-visuals">Waiting</div>
+                </div>
+                <div class="stage-item">
+                  <div class="stage-icon">📖</div>
+                  <div class="stage-name">Subtitles</div>
+                  <div class="stage-status" id="stage-subtitles">Waiting</div>
+                </div>
+                <div class="stage-item">
+                  <div class="stage-icon">🎵</div>
+                  <div class="stage-name">Music</div>
+                  <div class="stage-status" id="stage-music">Waiting</div>
+                </div>
+                <div class="stage-item">
+                  <div class="stage-icon">⚙️</div>
+                  <div class="stage-name">Export</div>
+                  <div class="stage-status" id="stage-export">Waiting</div>
+                </div>
               </div>
-              <div class="form-group">
-                <label class="form-label">Pixabay Key</label>
-                <input type="password" id="pixabayKey" class="form-input">
-              </div>
-              <button class="btn-primary" style="width:100%; margin-top:12px;">Save API Keys</button>
             </div>
           </div>
 
-          <div class="settings-section">
-            <div class="section-title">LLM Backend</div>
+          <div>
+            <h2>Production Monitor</h2>
             <div class="glass-card">
-              <div class="form-group">
-                <label class="form-label">Qwen Endpoint</label>
-                <input type="text" value="http://localhost:11434/v1" class="form-input">
+              <div style="text-align: center; margin-bottom: 20px;">
+                <svg class="progress-ring" viewBox="0 0 200 200">
+                  <circle class="progress-ring__circle" stroke-dasharray="628" stroke-dashoffset="628" r="100" cx="100" cy="100" id="progressRing"></circle>
+                </svg>
+                <div class="progress-text">
+                  <div class="progress-pct" id="progressPct">0%</div>
+                  <div class="progress-label">Render Progress</div>
+                </div>
               </div>
-              <button class="btn-secondary" style="width:100%; margin-top:12px;">Test Connection</button>
-            </div>
-          </div>
 
-          <div class="settings-section">
-            <div class="section-title">Discord</div>
-            <div class="glass-card">
-              <div class="form-group">
-                <label class="form-label">Bot Token</label>
-                <input type="password" class="form-input">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Channel ID</label>
-                <input type="text" class="form-input">
-              </div>
-              <button class="btn-primary" style="width:100%; margin-top:12px;">Save Discord Settings</button>
+              <div id="renderEvents" style="max-height: 300px; overflow-y: auto;"></div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- AI Team View -->
-      <div class="view" id="viewTeam">
-        <div>
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-            <h2>AI Team Status</h2>
-            <button class="btn-primary" onclick="fetch('/api/trend_cycle/run', {method:'POST'}).then(r=>r.json()).then(d=>toast('Trend cycle started', 'success'))">▶ Run Trend Cycle</button>
-          </div>
-          <div class="grid-2" id="aiTeamGrid" style="gap:16px;"></div>
-        </div>
+      <!-- AI Agents View -->
+      <div class="view" id="agents">
+        <h2>Autonomous AI Agents (12 Total)</h2>
+        <div class="grid-2" id="allAgentsList"></div>
       </div>
 
       <!-- Trends View -->
-      <div class="view" id="viewTrends">
-        <div>
-          <h2 style="margin-bottom:24px;">Recent Trends</h2>
-          <div style="overflow-x:auto;">
-            <table style="width:100%; border-collapse:collapse; font-size:13px;">
-              <thead>
-                <tr style="border-bottom:1px solid var(--line);">
-                  <th style="text-align:left; padding:12px; color:var(--muted);">Source</th>
-                  <th style="text-align:left; padding:12px; color:var(--muted);">Topic</th>
-                  <th style="text-align:center; padding:12px; color:var(--muted);">Raw Score</th>
-                  <th style="text-align:center; padding:12px; color:var(--muted);">Prior Score</th>
-                  <th style="text-align:center; padding:12px; color:var(--muted);">Status</th>
-                  <th style="text-align:center; padding:12px; color:var(--muted);">Action</th>
-                </tr>
-              </thead>
-              <tbody id="trendsTable"></tbody>
-            </table>
-          </div>
-        </div>
+      <div class="view" id="trends">
+        <h2>Trending Topics</h2>
+        <div id="trendsList"></div>
       </div>
 
       <!-- Engagement View -->
-      <div class="view" id="viewEngagement">
-        <div>
-          <h2 style="margin-bottom:24px;">Engagement Metrics</h2>
-          <div class="grid-2" id="engagementGrid" style="gap:16px;"></div>
-        </div>
+      <div class="view" id="engagement">
+        <h2>Engagement Metrics</h2>
+        <div class="grid-3" id="engagementList"></div>
       </div>
 
-      <!-- Patches View -->
-      <div class="view" id="viewPatches">
-        <div>
-          <h2 style="margin-bottom:24px;">Code Patches (Qwen Coder)</h2>
-          <div id="patchesContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
-        </div>
+      <!-- Drafts View -->
+      <div class="view" id="drafts">
+        <h2>Drafts & Videos</h2>
+        <div id="draftsList"></div>
       </div>
-
     </main>
   </div>
 
   <script>
-    // Application state
     const state = {
-      current: 'dash',
       live: false,
-      drafts: { A: [], B: [] },
-      events: [],
+      drafts: [],
       agents: [],
-      jobs: {},
       trends: [],
       engagement: [],
-      patches: []
+      events: [],
+      currentRender: null,
+      pollInterval: null
     };
 
-    // Detect backend
-    async function detect() {
-      try {
-        const r = await fetch('/api/health');
-        if (r.ok) {
-          state.live = true;
-          document.getElementById('statusBackend').classList.remove('warn');
-          loadDrafts();
-          loadTelemetry();
-          startAutoRefresh();
-          return true;
-        }
-      } catch (e) {}
-      state.live = false;
-      document.getElementById('statusBackend').classList.add('warn');
-      return false;
+    // Connect to backend
+    async function init() {
+      const health = await fetch('/api/health').then(r => r.json()).catch(() => null);
+      state.live = !!health;
+      document.getElementById('statusBtn').textContent = state.live ? '● Online' : '● Offline';
+      document.getElementById('statusBtn').style.background = state.live ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)';
+      if (state.live) await loadAll();
+      setInterval(loadAll, 3500);
     }
 
-    // Load drafts
-    async function loadDrafts() {
+    async function loadAll() {
       if (!state.live) return;
-      try {
-        const r = await fetch('/api/drafts');
-        if (r.ok) {
-          const data = await r.json();
-          state.drafts.A = data.A || [];
-          state.drafts.B = data.B || [];
-          updateViews();
-        }
-      } catch (e) {}
+      const [drafts, agents, trends, engagement, events] = await Promise.all([
+        fetch('/api/drafts').then(r => r.json()).catch(() => []),
+        fetch('/api/agents').then(r => r.json()).catch(() => []),
+        fetch('/api/trends').then(r => r.json()).catch(() => []),
+        fetch('/api/engagement').then(r => r.json()).catch(() => []),
+        fetch('/api/events').then(r => r.json()).catch(() => [])
+      ]);
+      state.drafts = drafts;
+      state.agents = agents;
+      state.trends = trends;
+      state.engagement = engagement;
+      state.events = events;
+      updateAllViews();
     }
 
-    // Load telemetry
-    async function loadTelemetry() {
-      if (!state.live) return;
-      try {
-        const [jobs, events, trends, engagement, patches] = await Promise.all([
-          fetch('/api/agents').then(r => r.json()).catch(() => []),
-          fetch('/api/events').then(r => r.json()).catch(() => []),
-          fetch('/api/trends').then(r => r.json()).catch(() => []),
-          fetch('/api/engagement').then(r => r.json()).catch(() => []),
-          fetch('/api/patches').then(r => r.json()).catch(() => [])
-        ]);
-        state.agents = jobs || [];
-        state.events = events || [];
-        state.trends = trends || [];
-        state.engagement = engagement || [];
-        state.patches = patches || [];
-        updateViews();
-      } catch (e) {}
+    function updateAllViews() {
+      updateDashboard();
+      updateAgents();
+      updateTrends();
+      updateEngagement();
+      updateDrafts();
     }
 
-    // Update all views
-    function updateViews() {
-      const activeId = document.querySelector('.view.active')?.id;
-      if (activeId === 'viewDash') updateDashboard();
-      else if (activeId === 'viewQueue') updateQueue();
-      else if (activeId === 'viewAgents') updateAgents();
-      else if (activeId === 'viewTeam') updateTeam();
-      else if (activeId === 'viewTrends') updateTrends();
-      else if (activeId === 'viewEngagement') updateEngagement();
-      else if (activeId === 'viewPatches') updatePatches();
-    }
-
-    // Update dashboard
     function updateDashboard() {
-      const allDrafts = [...state.drafts.A, ...state.drafts.B];
-      const pending = allDrafts.filter(d => d.status === 'pending').length;
-      const approved = allDrafts.filter(d => d.status === 'approved').length;
-      const published = allDrafts.filter(d => d.status === 'published').length;
+      const total = state.drafts.length;
+      const pending = state.drafts.filter(d => d.status === 'pending').length;
+      const approved = state.drafts.filter(d => d.status === 'approved').length;
+      const published = state.drafts.filter(d => d.status === 'published').length;
 
-      document.getElementById('statTotal').textContent = allDrafts.length;
+      document.getElementById('statTotal').textContent = total;
       document.getElementById('statPending').textContent = pending;
       document.getElementById('statApproved').textContent = approved;
       document.getElementById('statPublished').textContent = published;
 
-      const countA = state.drafts.A.filter(d => d.status === 'pending' || d.status === 'approved').length;
-      const countB = state.drafts.B.filter(d => d.status === 'pending' || d.status === 'approved').length;
-
-      document.getElementById('healthA').textContent = `${countA}/21`;
-      document.getElementById('healthB').textContent = `${countB}/21`;
-      document.getElementById('healthBarA').style.width = `${Math.min(100, (countA / 21) * 100)}%`;
-      document.getElementById('healthBarB').style.width = `${Math.min(100, (countB / 21) * 100)}%`;
-
-      // Render recent reels
-      const grid = document.getElementById('reelsGrid');
-      const recentReels = allDrafts.slice(-6).reverse();
-      if (recentReels.length === 0) {
-        grid.innerHTML = '<div class="glass-card" style="aspect-ratio:9/16; display:flex; align-items:center; justify-content:center;"><div style="text-align:center; color:var(--muted);"><div style="font-size:32px; margin-bottom:8px;">📺</div>No reels yet</div></div>';
-      } else {
-        grid.innerHTML = recentReels.map(d => `
-          <div class="reel-card">
-            <div style="width:100%; height:100%; background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--muted);">📺</div>
-            <div class="reel-overlay">
-              <div class="reel-title">${d.title || 'Untitled'}</div>
-              <div class="reel-badges">
-                <span class="badge ${d.status}">${d.status}</span>
-                <span class="badge" style="background:rgba(99,102,241,0.15); color:var(--accent);">${d.pipeline}</span>
-              </div>
-            </div>
-          </div>
-        `).join('');
-      }
-
-      // Agent chip strip
-      const agentChips = state.agents.slice(0, 6).map(a => `
-        <div class="agent-chip">
-          <div class="agent-status-dot" id="dot-${a.name}"></div>
-          <span>${a.name}</span>
-        </div>
-      `).join('');
-      document.querySelector('.agentpulse').innerHTML = agentChips || '<span style="color:var(--muted); font-size:12px;">Live agent mesh</span>';
-
-      // Event feed
-      const feed = document.getElementById('eventFeed');
-      const recentEvents = state.events.slice(-10).reverse();
-      feed.innerHTML = recentEvents.length === 0 ? '<div style="color:var(--muted); font-size:12px;">Awaiting events...</div>' : recentEvents.map(e => `
-        <div class="event-item">
-          <div class="event-time">${new Date(e.ts * 1000).toLocaleTimeString()}</div>
-          <div class="event-text"><strong>${e.agent}</strong> ${e.type}: ${e.note || ''}</div>
-        </div>
-      `).join('');
-    }
-
-    // Update queue
-    function updateQueue() {
-      const container = document.getElementById('queueContainer');
-      const allDrafts = [...state.drafts.A, ...state.drafts.B];
-      const pending = allDrafts.filter(d => d.status === 'pending');
-
-      if (pending.length === 0) {
-        container.innerHTML = '<div class="glass-card" style="text-align:center; padding:40px;"><div style="color:var(--muted);">No drafts to review</div></div>';
-      } else {
-        container.innerHTML = pending.map(d => `
-          <div class="glass-card review-card">
-            <div class="review-thumbnail" style="background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--muted);">🎬</div>
-            <div class="review-content">
-              <div>
-                <h3>${d.title}</h3>
-                <div style="display:flex; gap:12px; margin-bottom:12px;">
-                  <span class="badge" style="background:rgba(99,102,241,0.15); color:var(--accent);">${d.pipeline}</span>
-                  <span class="badge" style="background:rgba(99,102,241,0.15); color:var(--accent);">${d.category || 'default'}</span>
-                </div>
-              </div>
-              <div class="review-script">${(d.script || '').substring(0, 200)}...</div>
-              <div class="review-metadata">
-                <span style="color:var(--muted); font-size:12px;"><strong>Topic:</strong> ${d.topic || 'N/A'}</span>
-              </div>
-              <div class="review-actions">
-                <button class="btn-primary" onclick="approveReview(${d.id})">✓ Approve</button>
-                <button class="btn-danger" onclick="rejectReview(${d.id})">✗ Reject</button>
-              </div>
-            </div>
-          </div>
-        `).join('');
-      }
-    }
-
-    // Update agents
-    function updateAgents() {
-      const grid = document.getElementById('agentsGrid');
-      grid.innerHTML = state.agents.map(a => `
-        <div class="glass-card agent-card">
+      const agentsList = document.getElementById('agentsList');
+      agentsList.innerHTML = state.agents.map(a => `
+        <div class="agent-card">
           <div class="agent-header">
             <div class="agent-name">${a.name}</div>
-            <div class="breaker-badge ${a.circuit_open ? 'open' : 'closed'}">${a.circuit_open ? 'OPEN' : 'CLOSED'}</div>
+            <span class="agent-status ${a.status === 'running' ? 'running' : a.status === 'idle' ? 'idle' : 'error'}">${a.status.toUpperCase()}</span>
           </div>
-          <div style="color:var(--muted); font-size:12px;">Status: ${a.status}</div>
+          <div style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">Circuit: ${a.circuit_open ? '🔴 OPEN' : '🟢 CLOSED'}</div>
+          <div style="font-size: 11px; color: var(--muted);">Last: ${a.last_run ? new Date(a.last_run * 1000).toLocaleTimeString() : 'Never'}</div>
         </div>
-      `).join('') || '<div style="grid-column:1/-1; text-align:center; color:var(--muted); padding:40px;">No agents</div>';
+      `).join('');
+
+      const eventStream = document.getElementById('eventStream');
+      eventStream.innerHTML = (state.events || []).slice(0, 10).map(e => `
+        <div class="event-item">
+          <div class="event-icon">📌</div>
+          <div class="event-content">
+            <div class="event-title">${e.agent} → ${e.type}</div>
+            <div class="event-time">${new Date(e.ts * 1000).toLocaleTimeString()}</div>
+          </div>
+        </div>
+      `).join('');
     }
 
-    // Update AI Team view
-    function updateTeam() {
-      const grid = document.getElementById('aiTeamGrid');
-      const aiAgents = state.agents.filter(a => ['trend_research', 'production_orchestrator', 'auto_approve', 'distribution', 'engagement_feedback', 'qwen_coder'].includes(a.name));
-      grid.innerHTML = aiAgents.map(a => `
-        <div class="glass-card" style="padding:16px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <div style="font-weight:600; color:var(--text);">${a.name}</div>
-            <div style="width:12px; height:12px; border-radius:50%; background:${a.circuit_open ? 'var(--danger)' : a.status === 'running' ? 'var(--warn)' : 'var(--ok)'}; box-shadow:0 0 8px ${a.circuit_open ? 'var(--danger)' : a.status === 'running' ? 'var(--warn)' : 'var(--ok)'}33;"></div>
-          </div>
-          <div style="color:var(--muted); font-size:12px; margin-bottom:8px;">Status: <strong>${a.status}</strong></div>
-          <div style="color:var(--muted); font-size:12px;">Circuit: <strong>${a.circuit_open ? '🔴 OPEN' : '🟢 CLOSED'}</strong></div>
-          ${a.last_run ? `<div style="color:var(--muted); font-size:11px; margin-top:8px;">Last: ${new Date(a.last_run * 1000).toLocaleTimeString()}</div>` : ''}
+    function updateAgents() {
+      const allAgentsList = document.getElementById('allAgentsList');
+      allAgentsList.innerHTML = state.agents.map(a => `
+        <div class="glass-card">
+          <div style="font-weight: 600; margin-bottom: 8px;">${a.name}</div>
+          <div style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">Status: <span class="badge ${a.status === 'idle' ? 'inactive' : 'active'}">${a.status}</span></div>
+          <div style="font-size: 11px; color: var(--muted);">Circuit: ${a.circuit_open ? '🔴 OPEN' : '🟢 CLOSED'}</div>
         </div>
-      `).join('') || '<div style="grid-column:1/-1; text-align:center; color:var(--muted); padding:40px;">No AI team agents</div>';
+      `).join('');
     }
 
-    // Update Trends view
     function updateTrends() {
-      const tbody = document.getElementById('trendsTable');
-      tbody.innerHTML = state.trends.map(t => `
-        <tr style="border-bottom:1px solid var(--line);">
-          <td style="padding:12px; color:var(--accent);">${t.source || 'unknown'}</td>
-          <td style="padding:12px; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${t.topic || ''}</td>
-          <td style="padding:12px; text-align:center;">${(t.raw_score || 0).toFixed(1)}</td>
-          <td style="padding:12px; text-align:center;">${(t.prior_score || 0).toFixed(2)}</td>
-          <td style="padding:12px; text-align:center;"><span class="badge ${t.used ? 'pending' : 'approved'}" style="font-size:11px;">${t.used ? 'Used' : 'Ready'}</span></td>
-          <td style="padding:12px; text-align:center;"><button class="btn-secondary" style="font-size:11px; padding:4px 8px;" onclick="fetch('/api/render', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({topic:'${t.topic}'})}).then(r=>r.json()).then(d=>toast('Render started', 'success'))">Produce</button></td>
-        </tr>
-      `).join('') || '<tr><td colspan="6" style="padding:40px; text-align:center; color:var(--muted);">No trends yet</td></tr>';
+      const trendsList = document.getElementById('trendsList');
+      trendsList.innerHTML = (state.trends || []).slice(0, 20).map(t => `
+        <div class="glass-card" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-weight: 600; margin-bottom: 4px;">${t.topic}</div>
+            <div style="font-size: 11px; color: var(--muted);">${t.source} • Raw: ${(t.raw_score || 0).toFixed(1)} • Prior: ${(t.prior_score || 0).toFixed(2)}</div>
+          </div>
+          <button class="btn btn-primary" onclick="produceVideo('${t.topic.replace(/'/g, "\\'")}')">Produce</button>
+        </div>
+      `).join('');
     }
 
-    // Update Engagement view
     function updateEngagement() {
-      const grid = document.getElementById('engagementGrid');
-      if (!state.engagement || state.engagement.length === 0) {
-        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:var(--muted); padding:40px;">No engagement data yet</div>';
-        return;
-      }
-      const byDraft = {};
-      state.engagement.forEach(e => {
-        if (!byDraft[e.draft_id]) byDraft[e.draft_id] = {};
-        byDraft[e.draft_id][e.platform] = e;
+      const engagementList = document.getElementById('engagementList');
+      const grouped = {};
+      (state.engagement || []).forEach(e => {
+        if (!grouped[e.draft_id]) grouped[e.draft_id] = [];
+        grouped[e.draft_id].push(e);
       });
-      grid.innerHTML = Object.entries(byDraft).map(([draftId, platforms]) => `
-        <div class="glass-card" style="padding:16px;">
-          <div style="margin-bottom:12px; color:var(--text); font-weight:600;">Draft ${draftId}</div>
-          ${Object.entries(platforms).map(([platform, m]) => `
-            <div style="margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--line);">
-              <div style="color:var(--accent); font-size:12px; font-weight:600; margin-bottom:4px;">📱 ${platform.toUpperCase()}</div>
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px; color:var(--muted);">
-                <div>👁 ${m.views || 0} views</div>
-                <div>❤️ ${m.likes || 0} likes</div>
-                <div>💬 ${m.comments || 0} comments</div>
+      engagementList.innerHTML = Object.entries(grouped).slice(0, 12).map(([id, metrics]) => `
+        <div class="glass-card">
+          <div style="font-weight: 600; margin-bottom: 12px;">Draft ${id}</div>
+          ${metrics.map(m => `
+            <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line);">
+              <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px; color: var(--accent);">${m.platform.toUpperCase()}</div>
+              <div style="font-size: 11px; color: var(--muted); display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                <div>👁 ${m.views} views</div>
+                <div>❤️ ${m.likes} likes</div>
+                <div>💬 ${m.comments} comments</div>
                 <div>⭐ ${(m.reward || 0).toFixed(2)} reward</div>
               </div>
             </div>
@@ -1396,335 +402,131 @@
       `).join('');
     }
 
-    // Update Patches view
-    function updatePatches() {
-      const container = document.getElementById('patchesContainer');
-      if (!state.patches || state.patches.length === 0) {
-        container.innerHTML = '<div style="text-align:center; color:var(--muted); padding:40px;">No patches generated yet</div>';
-        return;
-      }
-      container.innerHTML = state.patches.map(p => `
-        <div class="glass-card" style="padding:16px;">
-          <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:12px;">
+    function updateDrafts() {
+      const draftsList = document.getElementById('draftsList');
+      draftsList.innerHTML = (state.drafts || []).slice(0, 20).map(d => `
+        <div class="glass-card" style="margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
             <div>
-              <div style="color:var(--text); font-weight:600; margin-bottom:4px;">🔧 ${p.file_path}</div>
-              <div style="color:var(--muted); font-size:12px; margin-bottom:8px;">${p.error_summary || ''}</div>
+              <div style="font-weight: 600; margin-bottom: 4px;">${d.title || d.topic}</div>
+              <div style="font-size: 11px; color: var(--muted);">${d.topic}</div>
             </div>
-            <span class="badge ${p.applied ? 'approved' : 'pending'}" style="font-size:11px;">${p.applied ? '✅ Applied' : '⏳ Pending'}</span>
+            <span class="badge ${d.status === 'published' ? 'active' : d.status === 'approved' ? 'active' : 'inactive'}">${d.status.toUpperCase()}</span>
           </div>
-          <div style="background:var(--surface2); border-radius:var(--r1); padding:12px; overflow-x:auto; font-size:11px; font-family:monospace; color:var(--muted); margin-bottom:12px; max-height:200px; overflow-y:auto;">
-            ${p.patch_diff ? p.patch_diff.split('\n').slice(0, 15).map(line => `<div style="color:${line.startsWith('+') ? 'var(--ok)' : line.startsWith('-') ? 'var(--danger)' : 'var(--muted)'};">${line}</div>`).join('') + (p.patch_diff.split('\n').length > 15 ? '<div style="color:var(--muted);">... (truncated)</div>' : '') : 'No diff'}
-          </div>
-          ${!p.applied ? `<button class="btn-primary" style="width:100%; font-size:12px; padding:8px;" onclick="fetch('/api/patches/${p.id}/apply', {method:'POST'}).then(r=>r.json()).then(d=>{toast('Patch applied', 'success'); location.reload()});">Apply Patch</button>` : '<div style="color:var(--ok); font-size:12px; text-align:center;">✓ Patch applied successfully</div>'}
+          <div style="font-size: 11px; color: var(--muted);">Pipeline ${d.pipeline} • ${d.category}</div>
         </div>
       `).join('');
     }
 
-    // Navigation
-    document.querySelectorAll('.nav-link').forEach(link => {
-      link.addEventListener('click', () => {
-        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-        link.classList.add('active');
-
-        const view = link.dataset.view;
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        document.getElementById(`view${view[0].toUpperCase() + view.slice(1)}`).classList.add('active');
-
-        const titles = { dash: 'Dashboard', queue: 'Review Queue', render: 'Render Studio', agents: 'Agents', variants: 'Variant Lab', episodes: 'Episodes', sched: 'Schedule', settings: 'Settings', team: 'AI Team', trends: 'Trends', engagement: 'Engagement', patches: 'Code Patches' };
-        document.getElementById('pageTitle').textContent = titles[view] || 'Studio';
-
-        updateViews();
-      });
-    });
-
-    // Auto refresh
-    function startAutoRefresh() {
-      setInterval(async () => {
-        await loadDrafts();
-        await loadTelemetry();
-        updateViews();
-      }, 3500);
+    async function produceVideo(topic) {
+      try {
+        const r = await fetch('/api/render', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic, visual_source: 'auto' })
+        });
+        const data = await r.json();
+        state.currentRender = data.job_id;
+        showToast(`Producing: ${topic}`, 'success');
+        switchView('render');
+        pollRenderProgress();
+      } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+      }
     }
 
-    // Init
-    detect().finally(() => {
-      if (!state.live) {
-        document.getElementById('statusBackend').classList.add('warn');
-        document.getElementById('statusComfy').classList.add('warn');
-        document.getElementById('statusQwen').classList.add('warn');
+    async function startRender() {
+      const topic = document.getElementById('renderTopic').value.trim();
+      if (!topic) {
+        showToast('Enter a topic', 'error');
+        return;
       }
-    });
+      const btn = document.getElementById('startRenderBtn');
+      btn.classList.add('loading');
+      btn.innerHTML = '<span class="spinner"></span> Rendering...';
+      await produceVideo(topic);
+    }
 
-    // Toast notifications
-    function toast(msg, type = 'info') {
+    async function pollRenderProgress() {
+      if (!state.currentRender) return;
+      try {
+        const data = await fetch(`/api/render/${state.currentRender}/events`).then(r => r.json());
+        const events = data.events || [];
+        const stages = ['script', 'tts', 'visuals', 'subtitles', 'music', 'export'];
+        let progress = 0;
+
+        events.forEach(e => {
+          const idx = stages.findIndex(s => e.type.includes(s));
+          if (idx >= 0) {
+            progress = ((idx + 1) / stages.length) * 100;
+            const icon = e.type.includes('done') ? '✅' : '⟳';
+            document.getElementById(`stage-${stages[idx]}`).innerHTML = `<span style="animation: ${e.type.includes('done') ? 'none' : 'spin 2s linear infinite'};">${icon}</span>`;
+          }
+        });
+
+        document.getElementById('progressPct').textContent = Math.round(progress) + '%';
+        const offset = (628 - (progress / 100) * 628).toFixed(2);
+        document.getElementById('progressRing').style.strokeDashoffset = offset;
+
+        const renderEvents = document.getElementById('renderEvents');
+        renderEvents.innerHTML = events.slice(-5).map(e => `
+          <div class="event-item">
+            <div class="event-icon">${e.type.includes('done') ? '✅' : '⟳'}</div>
+            <div class="event-content">
+              <div class="event-title">${e.type}</div>
+              <div class="event-time">${new Date(e.ts * 1000).toLocaleTimeString()}</div>
+            </div>
+          </div>
+        `).join('');
+
+        if (events.some(e => e.type === 'render_done')) {
+          showToast('Render complete! ✓', 'success');
+          document.getElementById('startRenderBtn').classList.remove('loading');
+          document.getElementById('renderBtnText').textContent = '✓ Complete';
+          setTimeout(() => {
+            document.getElementById('startRenderBtn').classList.remove('loading');
+            document.getElementById('renderBtnText').textContent = '▶ Start Render';
+            await loadAll();
+          }, 2000);
+          return;
+        }
+        setTimeout(pollRenderProgress, 500);
+      } catch (e) {
+        // Silent fail, continue polling
+        setTimeout(pollRenderProgress, 1000);
+      }
+    }
+
+    function switchView(name) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById(name).classList.add('active');
+      document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
+      document.querySelector(`[data-view="${name}"]`)?.classList.add('active');
+
+      const titles = { dashboard: 'Dashboard', render: 'Production', agents: 'AI Agents', trends: 'Trends', engagement: 'Engagement', drafts: 'Drafts' };
+      document.getElementById('pageTitle').textContent = titles[name] || 'Studio';
+    }
+
+    function showToast(msg, type = 'info') {
       const t = document.createElement('div');
-      t.style.cssText = `
-        position: fixed; bottom: 24px; right: 24px; padding: 12px 20px;
-        background: ${type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--ok)' : 'var(--accent)'};
-        color: white; border-radius: var(--r2); font-size: 14px; z-index: 1000;
-        animation: slideIn 0.3s ease;
-      `;
+      t.className = `toast ${type}`;
       t.textContent = msg;
       document.body.appendChild(t);
       setTimeout(() => t.remove(), 3000);
     }
 
-    // API functions
-    async function approveReview(id) {
-      try {
-        const resp = await fetch(`/api/drafts/${id}/approve`, { method: 'POST' });
-        if (resp.ok) {
-          toast('Draft approved! ✓', 'success');
-          await loadDrafts();
-          updateQueue();
-        } else {
-          toast('Failed to approve', 'error');
-        }
-      } catch (e) {
-        toast('Error: ' + e.message, 'error');
-      }
-    }
-
-    async function rejectReview(id) {
-      try {
-        const resp = await fetch(`/api/drafts/${id}/reject`, { method: 'POST' });
-        if (resp.ok) {
-          toast('Draft rejected. Regenerating...', 'success');
-          await loadDrafts();
-          updateQueue();
-        } else {
-          toast('Failed to reject', 'error');
-        }
-      } catch (e) {
-        toast('Error: ' + e.message, 'error');
-      }
-    }
-
-    // Render button
-    document.getElementById('startRenderBtn')?.addEventListener('click', async () => {
-      const topic = document.getElementById('topicInput').value.trim();
-      const source = document.getElementById('visualSourceSelect').value;
-
-      if (!topic) {
-        toast('Enter a topic first', 'error');
-        return;
-      }
-
-      const btn = document.getElementById('startRenderBtn');
-      btn.disabled = true;
-      btn.textContent = '⟳ Rendering...';
-
-      try {
-        const resp = await fetch('/api/render', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic, visual_source: source })
-        });
-
-        if (resp.ok) {
-          const data = await resp.json();
-          toast('Render started! Job: ' + data.job_id, 'success');
-          document.getElementById('topicInput').value = '';
-          // Start polling for progress
-          pollRenderProgress(data.job_id);
-        } else {
-          toast('Failed to start render', 'error');
-        }
-      } catch (e) {
-        toast('Error: ' + e.message, 'error');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Start Render';
-      }
+    // Event listeners
+    document.getElementById('startRenderBtn').addEventListener('click', startRender);
+    document.getElementById('refreshBtn').addEventListener('click', loadAll);
+    document.querySelectorAll('.nav-link').forEach(btn => {
+      btn.addEventListener('click', () => switchView(btn.dataset.view));
+    });
+    document.getElementById('renderTopic').addEventListener('keypress', e => {
+      if (e.key === 'Enter') startRender();
     });
 
-    // Poll render progress
-    async function pollRenderProgress(jobId) {
-      const pollInterval = setInterval(async () => {
-        try {
-          const resp = await fetch(`/api/render/${jobId}/events`);
-          if (resp.ok) {
-            const events = await resp.json();
-            // Update progress bar based on stage
-            let progress = 0;
-            const stages = ['script', 'tts', 'visuals', 'subtitles', 'music', 'export'];
-            events.forEach(e => {
-              const stageIdx = stages.findIndex(s => e.type.includes(s));
-              if (stageIdx >= 0) {
-                progress = ((stageIdx + 1) / stages.length) * 100;
-                document.getElementById(`icon-${stages[stageIdx]}`).textContent = e.type.includes('done') ? '✅' : '⟳';
-              }
-            });
-            document.getElementById('progressPct').textContent = Math.round(progress) + '%';
-            document.getElementById('ringFill').style.setProperty('--progress', progress / 100);
-
-            // Check if done
-            if (events.some(e => e.type === 'render_done')) {
-              clearInterval(pollInterval);
-              toast('Render complete! ✓', 'success');
-              await loadDrafts();
-            }
-          }
-        } catch (e) {
-          // Silent fail on polling
-        }
-      }, 500);
-
-      // Stop polling after 1 hour
-      setTimeout(() => clearInterval(pollInterval), 3600000);
-    }
-
-    // Settings save buttons
-    document.querySelectorAll('.glass-card button').forEach(btn => {
-      if (btn.textContent.includes('Save')) {
-        btn.addEventListener('click', async (e) => {
-          const card = btn.closest('.glass-card');
-          const inputs = card.querySelectorAll('input, select');
-          const data = {};
-
-          inputs.forEach(input => {
-            if (input.id) {
-              data[input.id] = input.value;
-            }
-          });
-
-          btn.disabled = true;
-          const orig = btn.textContent;
-          btn.textContent = '⟳ Saving...';
-
-          try {
-            const resp = await fetch('/api/settings', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(data)
-            });
-
-            if (resp.ok) {
-              toast('Settings saved! ✓', 'success');
-            } else {
-              toast('Failed to save settings', 'error');
-            }
-          } catch (err) {
-            toast('Error: ' + err.message, 'error');
-          } finally {
-            btn.disabled = false;
-            btn.textContent = orig;
-          }
-        });
-      }
-    });
-
-    // Test connection button
-    document.querySelectorAll('button').forEach(btn => {
-      if (btn.textContent.includes('Test Connection')) {
-        btn.addEventListener('click', async () => {
-          btn.disabled = true;
-          btn.textContent = '⟳ Testing...';
-
-          try {
-            const resp = await fetch('/api/health');
-            if (resp.ok) {
-              const data = await resp.json();
-              if (data.ok) {
-                toast('Connected! Backend is healthy ✓', 'success');
-              } else {
-                toast('Backend error: ' + JSON.stringify(data), 'error');
-              }
-            } else {
-              toast('Connection failed', 'error');
-            }
-          } catch (e) {
-            toast('Connection error: ' + e.message, 'error');
-          } finally {
-            btn.disabled = false;
-            btn.textContent = 'Test Connection';
-          }
-        });
-      }
-    });
-
-    // Filter buttons
-    document.getElementById('pipelineFilter')?.addEventListener('change', updateQueue);
-    document.getElementById('statusFilter')?.addEventListener('change', updateQueue);
-
-    // Week navigation
-    document.querySelectorAll('button').forEach(btn => {
-      if (btn.textContent.includes('Previous Week')) {
-        btn.addEventListener('click', () => {
-          const display = document.getElementById('weekDisplay');
-          if (display) {
-            const parts = display.textContent.match(/(\d+)-W(\d+)/);
-            if (parts) {
-              let week = parseInt(parts[2]) - 1;
-              let year = parseInt(parts[1]);
-              if (week < 1) {
-                week = 52;
-                year--;
-              }
-              display.textContent = `${year}-W${String(week).padStart(2, '0')}`;
-            }
-          }
-        });
-      }
-      if (btn.textContent.includes('Next Week')) {
-        btn.addEventListener('click', () => {
-          const display = document.getElementById('weekDisplay');
-          if (display) {
-            const parts = display.textContent.match(/(\d+)-W(\d+)/);
-            if (parts) {
-              let week = parseInt(parts[2]) + 1;
-              let year = parseInt(parts[1]);
-              if (week > 52) {
-                week = 1;
-                year++;
-              }
-              display.textContent = `${year}-W${String(week).padStart(2, '0')}`;
-            }
-          }
-        });
-      }
-    });
-
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-      if (state.current === 'queue') {
-        if (e.key.toUpperCase() === 'A') {
-          // Approve focused draft
-          const focused = document.querySelector('.review-card');
-          if (focused) {
-            const btn = focused.querySelector('.btn-primary');
-            if (btn) btn.click();
-          }
-        }
-        if (e.key.toUpperCase() === 'R') {
-          // Reject focused draft
-          const focused = document.querySelector('.review-card');
-          if (focused) {
-            const btn = focused.querySelector('.btn-danger');
-            if (btn) btn.click();
-          }
-        }
-      }
-    });
-
-    // Initialize week display
-    const weekDisplay = document.getElementById('weekDisplay');
-    if (weekDisplay) {
-      const today = new Date();
-      const d = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
-      d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-      const w = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-      weekDisplay.textContent = `${d.getUTCFullYear()}-W${String(w).padStart(2, '0')}`;
-    }
-
-    // Refresh button
-    document.getElementById('refreshBtn')?.addEventListener('click', async () => {
-      await loadDrafts();
-      await loadTelemetry();
-      updateViews();
-      toast('Refreshed ✓', 'success');
-    });
+    // Init
+    init();
   </script>
 </body>
 </html>
