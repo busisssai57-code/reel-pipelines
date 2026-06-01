@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging, datetime as dt
 from dataclasses import dataclass, field
 from .common import bus, db, qwen_client, supervisor, ffmpeg_build, config, thumbnails, autopost
+from . import agents_ai_team
 
 log = logging.getLogger("agents")
 
@@ -174,13 +175,59 @@ class AgentRunner:
             for etype in ag.subscribes:
                 bus.subscribe(etype, ag._dispatch)
 
+        # Initialize scheduler for AI team cycles
+        self._scheduler = None
+        self._init_scheduler()
+
+    def _init_scheduler(self):
+        """Start APScheduler for trend cycles and engagement polling."""
+        try:
+            from apscheduler.schedulers.background import BackgroundScheduler
+            self._scheduler = BackgroundScheduler()
+
+            # Trend research cycle
+            self._scheduler.add_job(
+                lambda: bus.emit(None, "scheduler", "trend_cycle_start"),
+                "interval",
+                hours=config.TREND_CYCLE_HOURS,
+                id="trend_cycle",
+            )
+
+            # Engagement polling cycle
+            self._scheduler.add_job(
+                self._poll_engagement,
+                "interval",
+                hours=config.ENGAGEMENT_POLL_HOURS,
+                id="engagement_poll",
+            )
+
+            self._scheduler.start()
+            log.info(f"Scheduler started: trend_cycle every {config.TREND_CYCLE_HOURS}h, engagement_poll every {config.ENGAGEMENT_POLL_HOURS}h")
+        except ImportError:
+            log.warning("APScheduler not installed; scheduler disabled")
+        except Exception as e:
+            log.error(f"Scheduler init failed: {e}")
+
+    def _poll_engagement(self):
+        """Emit engagement_poll events for drafts that need refreshing."""
+        import time as time_mod
+        cutoff = time_mod.time() - (config.ENGAGEMENT_POLL_HOURS * 3600)
+        with db.conn() as c:
+            rows = c.execute(
+                "SELECT DISTINCT draft_id FROM engagement_metrics WHERE fetched_at < ?",
+                (cutoff,),
+            ).fetchall()
+        for row in rows:
+            draft_id = row[0]
+            bus.emit(None, "scheduler", "engagement_poll", data={"draft_id": draft_id})
+
     def health(self) -> list[dict]:
         return [a.health() for a in self.agents]
 
 
 def default_agents() -> list[Agent]:
     return [TriggerAgent(), VisualQAAgent(), AudienceFeedbackAgent(),
-            AutoPostAgent(), VariantGenAgent(), EpisodesAgent()]
+            AutoPostAgent(), VariantGenAgent(), EpisodesAgent()] + agents_ai_team.ai_team_agents()
 
 
 # module-level singleton runner (created on import for convenience)

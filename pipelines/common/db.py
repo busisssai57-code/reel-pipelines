@@ -36,6 +36,45 @@ CREATE TABLE IF NOT EXISTS assets (
     local_path TEXT,
     created_at REAL
 );
+CREATE TABLE IF NOT EXISTS trend_candidates (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    source      TEXT,                         -- reddit|youtube_rss|google_trends
+    topic       TEXT NOT NULL,
+    raw_score   REAL DEFAULT 0.0,             -- source-provided signal
+    prior_score REAL DEFAULT 0.0,             -- from supervisor.priors
+    used        INTEGER DEFAULT 0,            -- 1 once dispatched to production
+    created_at  REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS engagement_metrics (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    draft_id    INTEGER,
+    platform    TEXT,                         -- youtube|tiktok
+    video_id    TEXT,                         -- platform's own ID
+    views       INTEGER DEFAULT 0,
+    likes       INTEGER DEFAULT 0,
+    comments    INTEGER DEFAULT 0,
+    shares      INTEGER DEFAULT 0,
+    ctr         REAL DEFAULT 0.0,
+    reward      REAL DEFAULT 0.0,             -- computed by engagement module
+    fetched_at  REAL
+);
+CREATE TABLE IF NOT EXISTS platform_tokens (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    platform     TEXT UNIQUE,                 -- youtube|tiktok
+    access_token TEXT,
+    refresh_token TEXT,
+    expires_at   REAL,
+    scope        TEXT,
+    updated_at   REAL
+);
+CREATE TABLE IF NOT EXISTS code_patches (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_path   TEXT NOT NULL,
+    error_summary TEXT,
+    patch_diff  TEXT,                         -- unified diff string
+    applied     INTEGER DEFAULT 0,
+    created_at  REAL NOT NULL
+);
 """
 
 @contextmanager
@@ -110,3 +149,83 @@ def log_asset(draft_id, kind, source, url, license, local_path):
             "INSERT INTO assets(draft_id,kind,source,url,license,local_path,created_at) VALUES(?,?,?,?,?,?,?)",
             (draft_id, kind, source, url, license, str(local_path), time.time()),
         )
+
+# ---- trend candidates ----
+def add_trend(source, topic, raw_score, prior_score) -> int:
+    with conn() as c:
+        cur = c.execute(
+            "INSERT INTO trend_candidates(source,topic,raw_score,prior_score,created_at) VALUES(?,?,?,?,?)",
+            (source, topic, raw_score, prior_score, time.time()),
+        )
+        return cur.lastrowid
+
+def top_trends(n=5, unused_only=True) -> list:
+    q = "SELECT * FROM trend_candidates"
+    if unused_only:
+        q += " WHERE used=0"
+    q += " ORDER BY created_at DESC LIMIT ?"
+    with conn() as c:
+        return [dict(r) for r in c.execute(q, (n,)).fetchall()]
+
+def mark_trend_used(trend_id: int) -> None:
+    with conn() as c:
+        c.execute("UPDATE trend_candidates SET used=1 WHERE id=?", (trend_id,))
+
+# ---- engagement metrics ----
+def log_engagement(draft_id, platform, video_id, views, likes, comments, shares, ctr, reward) -> int:
+    with conn() as c:
+        cur = c.execute(
+            "INSERT INTO engagement_metrics(draft_id,platform,video_id,views,likes,comments,shares,ctr,reward,fetched_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+            (draft_id, platform, video_id, views, likes, comments, shares, ctr, reward, time.time()),
+        )
+        return cur.lastrowid
+
+def get_engagement_for_draft(draft_id, platform=None) -> list:
+    q = "SELECT * FROM engagement_metrics WHERE draft_id=?"
+    args = [draft_id]
+    if platform:
+        q += " AND platform=?"; args.append(platform)
+    q += " ORDER BY fetched_at DESC"
+    with conn() as c:
+        return [dict(r) for r in c.execute(q, args).fetchall()]
+
+def recent_engagement(n=50) -> list:
+    with conn() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT * FROM engagement_metrics ORDER BY fetched_at DESC LIMIT ?", (n,)
+        ).fetchall()]
+
+# ---- platform tokens ----
+def get_platform_token(platform) -> dict | None:
+    with conn() as c:
+        r = c.execute("SELECT * FROM platform_tokens WHERE platform=?", (platform,)).fetchone()
+        return dict(r) if r else None
+
+def set_platform_token(platform, access_token, refresh_token, expires_at, scope) -> None:
+    with conn() as c:
+        c.execute(
+            "INSERT INTO platform_tokens(platform,access_token,refresh_token,expires_at,scope,updated_at) VALUES(?,?,?,?,?,?) "
+            "ON CONFLICT(platform) DO UPDATE SET access_token=excluded.access_token, refresh_token=excluded.refresh_token, expires_at=excluded.expires_at, scope=excluded.scope, updated_at=excluded.updated_at",
+            (platform, access_token, refresh_token, expires_at, scope, time.time()),
+        )
+
+# ---- code patches ----
+def add_patch(file_path, error_summary, patch_diff) -> int:
+    with conn() as c:
+        cur = c.execute(
+            "INSERT INTO code_patches(file_path,error_summary,patch_diff,created_at) VALUES(?,?,?,?)",
+            (file_path, error_summary, patch_diff, time.time()),
+        )
+        return cur.lastrowid
+
+def get_patches(n=50, applied_only=False) -> list:
+    q = "SELECT * FROM code_patches"
+    if applied_only:
+        q += " WHERE applied=1"
+    q += " ORDER BY created_at DESC LIMIT ?"
+    with conn() as c:
+        return [dict(r) for r in c.execute(q, (n,)).fetchall()]
+
+def apply_patch(patch_id: int) -> None:
+    with conn() as c:
+        c.execute("UPDATE code_patches SET applied=1 WHERE id=?", (patch_id,))

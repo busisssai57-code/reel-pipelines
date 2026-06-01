@@ -63,6 +63,27 @@ AUTOPOST_DRY_RUN = os.getenv("AUTOPOST_DRY_RUN", "0").lower() in ("1", "true", "
 REEL_API_KEY = os.getenv("REEL_API_KEY", "")
 CORS_ORIGIN = os.getenv("CORS_ORIGIN", "*")
 
+# ---- YouTube OAuth (AI Team distribution) ----
+YOUTUBE_CLIENT_ID = os.getenv("YOUTUBE_CLIENT_ID", "")
+YOUTUBE_CLIENT_SECRET = os.getenv("YOUTUBE_CLIENT_SECRET", "")
+YOUTUBE_CHANNEL_ID = os.getenv("YOUTUBE_CHANNEL_ID", "")
+
+# ---- TikTok API (AI Team distribution) ----
+TIKTOK_CLIENT_KEY = os.getenv("TIKTOK_CLIENT_KEY", "")
+TIKTOK_CLIENT_SECRET = os.getenv("TIKTOK_CLIENT_SECRET", "")
+
+# ---- AI Team scheduler ----
+TREND_CYCLE_HOURS = int(os.getenv("TREND_CYCLE_HOURS", "24"))
+ENGAGEMENT_POLL_HOURS = int(os.getenv("ENGAGEMENT_POLL_HOURS", "6"))
+TREND_BATCH_SIZE = int(os.getenv("TREND_BATCH_SIZE", "3"))
+
+# ---- AI Team autonomy (dashboard override for human control) ----
+AUTO_APPROVE = os.getenv("AUTO_APPROVE", "false").lower() in ("1", "true", "yes")
+AUTO_PATCH = os.getenv("AUTO_PATCH", "false").lower() in ("1", "true", "yes")
+
+# ---- Qwen Coder (separate model for code generation) ----
+QWEN_CODER_MODEL = os.getenv("QWEN_CODER_MODEL", "qwen2.5-coder:7b-instruct")
+
 # ---- Kokoro voice rotation pool (round-robin, persisted in state.db) ----
 # American + British, mixed gender. See Kokoro voice list.
 VOICE_POOL = [
