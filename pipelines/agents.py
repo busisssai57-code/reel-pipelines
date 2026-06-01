@@ -17,7 +17,6 @@ from __future__ import annotations
 import logging, datetime as dt
 from dataclasses import dataclass, field
 from .common import bus, db, qwen_client, supervisor, ffmpeg_build, config, thumbnails, autopost
-from . import agents_ai_team
 
 log = logging.getLogger("agents")
 
@@ -223,6 +222,10 @@ class AgentRunner:
 
     def health(self) -> list[dict]:
         return [a.health() for a in self.agents]
+
+
+# Import AI team agents (after Agent class is defined to avoid circular import)
+from . import agents_ai_team
 
 
 def default_agents() -> list[Agent]:
