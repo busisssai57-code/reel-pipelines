@@ -28,7 +28,7 @@ def generate_patch(file_path: str, error_traceback: str, context_lines: int = 50
         line_num = max(1, line_num)
 
         # Read file, get context
-        with open(file_path) as f:
+        with open(file_path, encoding="utf-8") as f:
             lines = f.readlines()
 
         start = max(0, line_num - context_lines)
@@ -67,8 +67,8 @@ def apply_patch(patch_diff: str, file_path: str) -> bool:
         bak = p.with_suffix(p.suffix + ".bak")
 
         # Backup
-        with open(p) as f:
-            bak.write_text(f.read())
+        with open(p, encoding="utf-8") as f:
+            bak.write_text(f.read(), encoding="utf-8")
 
         # Apply patch via subprocess (portableish, not pure Python)
         # On Windows, patch command may not be available; fall back to manual parsing
@@ -88,8 +88,8 @@ def apply_patch(patch_diff: str, file_path: str) -> bool:
             return _apply_patch_manually(patch_diff, file_path)
 
         # Restore backup on failure
-        with open(bak) as f:
-            p.write_text(f.read())
+        with open(bak, encoding="utf-8") as f:
+            p.write_text(f.read(), encoding="utf-8")
         return False
 
     except Exception as e:
@@ -104,7 +104,7 @@ def _apply_patch_manually(patch_diff: str, file_path: str) -> bool:
     try:
         lines = patch_diff.split("\n")
         p = Path(file_path)
-        with open(p) as f:
+        with open(p, encoding="utf-8") as f:
             file_lines = f.readlines()
 
         i = 0
@@ -136,7 +136,7 @@ def _apply_patch_manually(patch_diff: str, file_path: str) -> bool:
             else:
                 i += 1
 
-        with open(p, "w") as f:
+        with open(p, "w", encoding="utf-8") as f:
             f.writelines(file_lines)
         log.info(f"Manual patch applied to {file_path}")
         return True

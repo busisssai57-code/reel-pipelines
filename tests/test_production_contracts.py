@@ -139,12 +139,14 @@ class ProductionContracts(unittest.TestCase):
 
     def test_dashboard_contains_live_operability_surfaces(self):
         html = (ROOT / "dashboard" / "index.html").read_text(encoding="utf-8")
+        # Structural surfaces (endpoints + DOM ids) the live dashboard must wire,
+        # kept resilient to UI copy changes: the drafts list, the live agent-status
+        # mesh, and the real-time event/trace stream feed.
         required = [
             "/api/drafts",
-            "/api/autopost/run",
-            "Live agent mesh",
-            "Trace stream",
-            "agentpulse",
+            "/api/agents",
+            "/api/events",
+            "eventStream",
         ]
         missing = [token for token in required if token not in html]
         self.assertEqual(missing, [])

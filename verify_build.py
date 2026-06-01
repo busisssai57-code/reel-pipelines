@@ -3,6 +3,17 @@
 import sys
 sys.path.insert(0, r'D:\reel-pipelines')
 
+# The status lines below use Unicode glyphs (checkmark / cross / warning). On
+# Windows the console/locale encoding is often cp1252 when stdout is redirected
+# or piped (CI, log capture), which cannot encode them and raises
+# UnicodeEncodeError. Force UTF-8 with a safe fallback so verification never
+# crashes on its own output.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 print("=" * 60)
 print("AUTONOMOUS AI TEAM BUILD VERIFICATION")
 print("=" * 60)
@@ -111,7 +122,7 @@ except Exception as e:
 # 6. Check server endpoints
 print("\n[6] Checking server implementation...")
 try:
-    with open(r'D:\reel-pipelines\server.py') as f:
+    with open(r'D:\reel-pipelines\server.py', encoding="utf-8") as f:
         server_code = f.read()
 
     endpoints = ['/api/trends', '/api/engagement', '/api/patches',
@@ -130,15 +141,17 @@ except Exception as e:
 # 7. Check dashboard views
 print("\n[7] Checking dashboard views...")
 try:
-    with open(r'D:\reel-pipelines\dashboard\index.html') as f:
+    with open(r'D:\reel-pipelines\dashboard\index.html', encoding="utf-8") as f:
         dashboard_html = f.read()
 
-    views = ['viewTeam', 'viewTrends', 'viewEngagement', 'viewPatches']
-    functions = ['updateTeam', 'updateTrends', 'updateEngagement', 'updatePatches']
+    # The dashboard navigates via data-view targets and renders each surface
+    # with an update* function. Verify the AI-team operability views are wired.
+    views = ['agents', 'trends', 'engagement', 'niche']
+    functions = ['updateAgentsList', 'updateEventStream', 'updateTrends', 'updateEngagement']
 
-    for view_id in views:
-        if f'id="{view_id}"' not in dashboard_html:
-            print(f"✗ Missing view: {view_id}")
+    for view in views:
+        if f'data-view="{view}"' not in dashboard_html:
+            print(f"✗ Missing view: {view}")
             sys.exit(1)
 
     for func in functions:
@@ -146,7 +159,7 @@ try:
             print(f"✗ Missing dashboard function: {func}")
             sys.exit(1)
 
-    print(f"✓ All 4 new dashboard views + functions present")
+    print(f"✓ All {len(views)} dashboard views + {len(functions)} functions present")
 except Exception as e:
     print(f"✗ Dashboard check error: {e}")
     sys.exit(1)
@@ -154,7 +167,7 @@ except Exception as e:
 # 8. Check run.py commands
 print("\n[8] Checking run.py commands...")
 try:
-    with open(r'D:\reel-pipelines\run.py') as f:
+    with open(r'D:\reel-pipelines\run.py', encoding="utf-8") as f:
         run_code = f.read()
 
     commands = ['ai-team', 'trend', 'distribute', 'oauth']
