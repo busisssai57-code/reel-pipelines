@@ -11,3 +11,6 @@ state.db
 .venv/
 venv/
 tools/
+
+# Cloudflare Wrangler local cache
+.wrangler/

@@ -15,7 +15,7 @@ from pathlib import Path
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse, unquote
 
-from pipelines.common import autopost, bus, config, db, hunyuan_video, supervisor
+from pipelines.common import autopost, bus, config, db, hunyuan_video, supervisor, qwen_client
 from pipelines import agents, batch, pipeline_a
 
 log = logging.getLogger("server")
@@ -271,6 +271,15 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/patches":
             patches = db.get_patches(n=50, applied_only=False)
             return self._json([dict(p) for p in patches])
+        # Live studio: niche research, fact-checks, reviews, queen status
+        if path == "/api/niche":
+            return self._json([dict(r) for r in db.recent_niche(n=20)])
+        if path == "/api/factchecks":
+            return self._json([dict(r) for r in db.recent_fact_checks(n=80)])
+        if path == "/api/reviews":
+            return self._json([dict(r) for r in db.recent_reviews(n=80)])
+        if path == "/api/qwen/status":
+            return self._json({"online": qwen_client.is_online(), "model": config.QWEN_MODEL})
         return self._json({"error": "unknown endpoint"}, 404)
 
     # ----------------------------------------------------------- POST
@@ -354,6 +363,38 @@ class Handler(BaseHTTPRequestHandler):
                 draft_id = int(path.split("/")[3])
                 bus.emit(None, "ui", "publish_request", data={"draft_id": draft_id})
                 return self._json({"ok": True, "draft_id": draft_id})
+            # ---- Reel Studio: queen (Qwen) chat ----
+            if path == "/api/qwen/chat":
+                messages = body.get("messages")
+                if not messages:
+                    messages = [{"role": "user", "content": body.get("message", "")}]
+                try:
+                    reply = qwen_client.chat(
+                        messages,
+                        system=body.get("system",
+                                        "You are the Reel Studio queen agent. Be concise and helpful."),
+                    )
+                    return self._json({"reply": reply})
+                except Exception as e:
+                    return self._json({"error": repr(e), "offline": True,
+                                       "reply": "Qwen is offline. Start Ollama and pull the model to chat live."}, 200)
+            # ---- Manual triggers for the live agents ----
+            if path == "/api/niche/run":
+                bus.emit(None, "ui", "niche_request")
+                return self._json({"ok": True, "message": "Niche research triggered"})
+            if path == "/api/factcheck/run":
+                if not body.get("draft_id"):
+                    return self._json({"error": "draft_id required"}, 400)
+                bus.emit(None, "ui", "fact_check_request",
+                         data={"draft_id": int(body["draft_id"])})
+                return self._json({"ok": True})
+            if path.startswith("/api/reviews/") and path.endswith("/resolve"):
+                review_id = int(path.split("/")[3])
+                db.resolve_review(review_id)
+                # If the caller asked to redo, kick a fresh render for the draft.
+                if body.get("redo") and body.get("draft_id"):
+                    _regenerate_job(int(body["draft_id"]))
+                return self._json({"ok": True})
             if path.startswith("/api/patches/") and path.endswith("/apply"):
                 patch_id = int(path.split("/")[3])
                 patch = db.get_patches(n=1, applied_only=False)

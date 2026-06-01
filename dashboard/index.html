@@ -573,6 +573,34 @@
       color: var(--text-secondary);
     }
 
+    /* Live event feed */
+    .feed-row {
+      display: flex; gap: 10px; align-items: baseline;
+      padding: 7px 4px; border-bottom: 1px solid var(--glass-medium);
+      font-size: 13px; animation: feedIn .3s ease;
+    }
+    @keyframes feedIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+    .feed-agent { font-weight: 600; min-width: 130px; color: var(--text-secondary); }
+    .feed-type { color: var(--accent, #0a84ff); font-weight: 600; }
+    .feed-note { color: var(--text-tertiary); flex: 1; }
+    .feed-time { color: var(--text-tertiary); font-size: 11px; white-space: nowrap; }
+    .agent-meta { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; line-height: 1.5; }
+    .agent-meta b { color: var(--text-secondary); font-weight: 600; }
+
+    /* Queen status + chat */
+    .queen-status {
+      margin: 16px 12px 0; padding: 8px 12px; border-radius: 8px;
+      font-size: 12px; background: var(--glass-medium); color: var(--text-secondary);
+    }
+    .queen-status.online { color: var(--success); }
+    .queen-status.offline { color: var(--warning); }
+    .qwen-log {
+      max-height: 50vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+    }
+    .qwen-msg { padding: 10px 14px; border-radius: 12px; max-width: 80%; font-size: 14px; line-height: 1.5; }
+    .qwen-msg.user { align-self: flex-end; background: var(--accent, #0a84ff); color: #fff; }
+    .qwen-msg.bot { align-self: flex-start; background: var(--glass-medium); color: var(--text-primary); }
+
     /* Table */
     .table {
       width: 100%;
@@ -776,9 +804,14 @@
         <button class="nav-link" data-view="render">🎬 Render</button>
         <button class="nav-link" data-view="agents">🤖 Agents</button>
         <button class="nav-link" data-view="trends">📈 Trends</button>
+        <button class="nav-link" data-view="niche">🎯 Niche</button>
+        <button class="nav-link" data-view="factcheck">✅ Fact-Check</button>
+        <button class="nav-link" data-view="review">🔎 Review</button>
+        <button class="nav-link" data-view="qwen">👑 Queen (Qwen)</button>
         <button class="nav-link" data-view="engagement">💬 Engagement</button>
         <button class="nav-link" data-view="drafts">📋 Drafts</button>
       </nav>
+      <div id="queenStatus" class="queen-status">👑 Qwen: checking…</div>
     </div>
 
     <!-- Top Bar -->
@@ -940,6 +973,48 @@
         <div id="engagementList" class="grid-2"></div>
       </div>
 
+      <!-- Niche View -->
+      <div class="view" id="niche">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <h2>Niche Research</h2>
+          <button class="btn btn-primary btn-sm" id="runNicheBtn">🎯 Run Niche Research</button>
+        </div>
+        <p class="subtitle">The niche researcher ranks candidate niches by trend + learned priors and picks the best, with transparent criteria.</p>
+        <div id="nicheList" class="grid-2"></div>
+      </div>
+
+      <!-- Fact-Check View -->
+      <div class="view" id="factcheck">
+        <h2>Fact-Check</h2>
+        <p class="subtitle">Every script's factual claims are verified by Qwen: <span class="badge badge-success">supported</span> <span class="badge badge-pending">uncertain</span> <span class="badge badge-error">contradicted</span>.</p>
+        <div class="card">
+          <table class="table">
+            <thead><tr><th>Draft</th><th>Claim</th><th>Verdict</th><th>Rationale</th></tr></thead>
+            <tbody id="factcheckList"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Review View -->
+      <div class="view" id="review">
+        <h2>Reviewer (QA gate)</h2>
+        <p class="subtitle">The reviewer checks every agent's work. Redos are <b>gated</b> — it flags &amp; proposes, you approve.</p>
+        <div id="reviewList"></div>
+      </div>
+
+      <!-- Queen (Qwen) View -->
+      <div class="view" id="qwen">
+        <h2>👑 Queen — Qwen</h2>
+        <div class="card">
+          <div id="qwenLog" class="qwen-log"></div>
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <input type="text" id="qwenInput" class="form-input" placeholder="Ask the queen anything about your reels…" style="flex:1;">
+            <button class="btn btn-primary" id="qwenSendBtn">Send</button>
+          </div>
+          <div id="qwenHint" class="subtitle" style="margin-top:8px;"></div>
+        </div>
+      </div>
+
       <!-- Drafts View -->
       <div class="view" id="drafts">
         <h2>Generated Videos</h2>
@@ -961,7 +1036,12 @@
     };
 
     const api = {
-      baseUrl: 'http://127.0.0.1:8787',
+      // Backend base URL. Defaults to the local studio server; override with
+      // ?api=https://your-host or localStorage 'apiBase' (e.g. when hosted on
+      // bta.pages.dev pointing at a tunnel/public backend).
+      baseUrl: (new URLSearchParams(location.search).get('api')
+                || localStorage.getItem('apiBase')
+                || 'http://127.0.0.1:8787').replace(/\/$/, ''),
 
       async fetchAgents() {
         try {
@@ -1022,7 +1102,31 @@
         } catch (e) {
           return {};
         }
-      }
+      },
+
+      async _get(path) {
+        try { const r = await fetch(`${this.baseUrl}${path}`); return r.ok ? r.json() : []; }
+        catch (e) { return []; }
+      },
+      fetchEvents()       { return this._get('/api/events'); },
+      fetchNiche()        { return this._get('/api/niche'); },
+      fetchFactchecks()   { return this._get('/api/factchecks'); },
+      fetchReviews()      { return this._get('/api/reviews'); },
+
+      async fetchQwenStatus() {
+        try { const r = await fetch(`${this.baseUrl}/api/qwen/status`); return r.ok ? r.json() : {online:false}; }
+        catch (e) { return {online:false}; }
+      },
+      async post(path, body) {
+        try {
+          const r = await fetch(`${this.baseUrl}${path}`, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(body || {})
+          });
+          return r.ok ? r.json() : null;
+        } catch (e) { return null; }
+      },
+      sendQwen(messages) { return this.post('/api/qwen/chat', { messages }); }
     };
 
     // ===== UI FUNCTIONS =====
@@ -1044,12 +1148,22 @@
         render: 'Render',
         agents: 'Agents',
         trends: 'Trends',
+        niche: 'Niche Research',
+        factcheck: 'Fact-Check',
+        review: 'Reviewer',
+        qwen: 'Queen (Qwen)',
         engagement: 'Engagement',
         drafts: 'Drafts'
       };
       document.getElementById('pageTitle').textContent = titles[viewName] || 'Dashboard';
 
       state.currentView = viewName;
+
+      // Lazy-load data for the opened view.
+      if (viewName === 'niche') updateNiche();
+      if (viewName === 'factcheck') updateFactchecks();
+      if (viewName === 'review') updateReviews();
+      if (viewName === 'qwen') updateQwenStatus();
     }
 
     function showToast(message, type = 'info') {
@@ -1065,13 +1179,40 @@
       }, 3000);
     }
 
+    function relTime(ts) {
+      if (!ts) return '';
+      const s = Math.max(0, Math.floor(Date.now() / 1000 - ts));
+      if (s < 60) return s + 's ago';
+      if (s < 3600) return Math.floor(s / 60) + 'm ago';
+      return Math.floor(s / 3600) + 'h ago';
+    }
+
     async function refreshDashboard() {
       state.agents = await api.fetchAgents();
       state.drafts = await api.fetchDrafts();
+      state.events = await api.fetchEvents();
 
       updateStats();
       updateAgentsList();
       updateAgentsDetail();
+      updateEventStream();
+    }
+
+    function updateEventStream() {
+      const el = document.getElementById('eventStream');
+      if (!el) return;
+      const events = (state.events || []);
+      if (!events.length) {
+        el.innerHTML = '<div class="subtitle" style="padding:12px;">No agent activity yet. Start a render to see agents work live.</div>';
+        return;
+      }
+      el.innerHTML = events.slice(0, 60).map(e => `
+        <div class="feed-row">
+          <span class="feed-agent">${e.agent || '—'}</span>
+          <span class="feed-type">${e.type || ''}</span>
+          <span class="feed-note">${(e.note || '')}</span>
+          <span class="feed-time">${relTime(e.ts)}</span>
+        </div>`).join('');
     }
 
     function updateStats() {
@@ -1095,13 +1236,17 @@
         card.className = 'agent-card';
         const status = agent.status || 'idle';
 
+        const la = agent.last_action;
         card.innerHTML = `
           <div class="agent-header">
             <span class="agent-name">${agent.name}</span>
             <span class="agent-status ${status}">${status}</span>
           </div>
-          <div class="agent-info">
-            <span>Circuit: ${agent.circuit_open ? '🔴 Open' : '🟢 Closed'}</span>
+          <div class="agent-meta">
+            ${agent.role ? `<div>${agent.role}</div>` : ''}
+            <div><b>Did:</b> ${la ? `${la.type || ''} ${la.note ? '· ' + la.note : ''} <span class="feed-time">(${relTime(la.ts)})</span>` : '—'}</div>
+            <div><b>Next:</b> waits for ${agent.waits_for || '—'}</div>
+            <div>Circuit: ${agent.circuit_open ? '🔴 Open' : '🟢 Closed'}</div>
           </div>
         `;
         container.appendChild(card);
@@ -1117,6 +1262,7 @@
         card.className = 'card';
         const status = agent.status || 'idle';
 
+        const la = agent.last_action;
         card.innerHTML = `
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-weight: 600;">${agent.name}</div>
@@ -1124,8 +1270,11 @@
               ${status}
             </span>
           </div>
-          <div style="font-size: 13px; color: var(--text-tertiary);">
-            Circuit: ${agent.circuit_open ? '🔴' : '🟢'} ${agent.circuit_open ? 'Open' : 'Closed'}
+          <div class="agent-meta">
+            ${agent.role ? `<div>${agent.role}</div>` : ''}
+            <div><b>Did:</b> ${la ? `${la.type || ''} ${la.note ? '· ' + la.note : ''} <span class="feed-time">(${relTime(la.ts)})</span>` : '—'}</div>
+            <div><b>Next:</b> waits for ${agent.waits_for || '—'}</div>
+            <div>Circuit: ${agent.circuit_open ? '🔴' : '🟢'} ${agent.circuit_open ? 'Open' : 'Closed'}</div>
           </div>
         `;
         container.appendChild(card);
@@ -1257,6 +1406,114 @@
       });
     }
 
+    // ===== NICHE / FACT-CHECK / REVIEW =====
+    async function updateNiche() {
+      const rows = await api.fetchNiche();
+      const c = document.getElementById('nicheList');
+      if (!c) return;
+      if (!rows.length) { c.innerHTML = '<div class="subtitle">No niche research yet — click “Run Niche Research”.</div>'; return; }
+      c.innerHTML = rows.map(r => {
+        let crit = [];
+        try { crit = JSON.parse(r.criteria_json || '[]'); } catch (e) {}
+        const list = (crit || []).map(x => `<div class="agent-meta"><b>${x.niche}</b> · ${(x.score||0).toFixed ? (x.score||0).toFixed(2) : x.score} — ${x.reason || ''}</div>`).join('');
+        return `<div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-weight:600;font-size:16px;">🎯 ${r.niche}</div>
+            <span class="badge badge-success">${(r.score||0).toFixed ? (r.score||0).toFixed(2) : r.score}</span>
+          </div>
+          <div style="margin-top:8px;">${list || '<span class="subtitle">no breakdown</span>'}</div>
+        </div>`;
+      }).join('');
+    }
+
+    async function updateFactchecks() {
+      const rows = await api.fetchFactchecks();
+      const tb = document.getElementById('factcheckList');
+      if (!tb) return;
+      const cls = v => v === 'supported' ? 'badge-success' : v === 'contradicted' ? 'badge-error' : 'badge-pending';
+      tb.innerHTML = rows.length ? rows.map(r => `
+        <tr>
+          <td>#${r.draft_id ?? '—'}</td>
+          <td>${r.claim || ''}</td>
+          <td><span class="badge ${cls(r.verdict)}">${r.verdict || ''}</span></td>
+          <td class="subtitle">${r.rationale || ''}</td>
+        </tr>`).join('') : '<tr><td colspan="4" class="subtitle">No fact-checks yet.</td></tr>';
+    }
+
+    async function updateReviews() {
+      const rows = await api.fetchReviews();
+      const c = document.getElementById('reviewList');
+      if (!c) return;
+      if (!rows.length) { c.innerHTML = '<div class="subtitle">No reviews yet.</div>'; return; }
+      const cls = v => v === 'pass' ? 'badge-success' : v === 'redo' ? 'badge-error' : 'badge-pending';
+      c.innerHTML = rows.map(r => `
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+          <div>
+            <div><span class="badge ${cls(r.verdict)}">${r.verdict}</span> <b>${r.target}</b> ${r.draft_id ? '· draft #' + r.draft_id : ''}</div>
+            <div class="agent-meta">${r.detail || ''} <span class="feed-time">(${relTime(r.created_at)})</span></div>
+          </div>
+          ${(!r.resolved && r.verdict !== 'pass') ? `<div style="display:flex;gap:8px;">
+            <button class="btn btn-primary btn-sm" onclick="resolveReview(${r.id}, ${r.draft_id || 'null'}, true)">Approve redo</button>
+            <button class="btn btn-secondary btn-sm" onclick="resolveReview(${r.id}, ${r.draft_id || 'null'}, false)">Dismiss</button>
+          </div>` : '<span class="badge badge-neutral">resolved</span>'}
+        </div>`).join('');
+    }
+
+    async function resolveReview(id, draftId, redo) {
+      await api.post(`/api/reviews/${id}/resolve`, { redo, draft_id: draftId });
+      showToast(redo ? 'Redo queued' : 'Dismissed', 'success');
+      updateReviews();
+    }
+
+    async function runNiche() {
+      await api.post('/api/niche/run', {});
+      showToast('Niche research triggered', 'success');
+      setTimeout(updateNiche, 1500);
+    }
+
+    // ===== QUEEN (QWEN) =====
+    const qwenHistory = [];
+
+    function appendQwen(role, text) {
+      const log = document.getElementById('qwenLog');
+      const div = document.createElement('div');
+      div.className = `qwen-msg ${role === 'user' ? 'user' : 'bot'}`;
+      div.textContent = text;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    async function sendQwen() {
+      const input = document.getElementById('qwenInput');
+      const msg = input.value.trim();
+      if (!msg) return;
+      appendQwen('user', msg);
+      qwenHistory.push({ role: 'user', content: msg });
+      input.value = '';
+      const btn = document.getElementById('qwenSendBtn');
+      btn.disabled = true; btn.textContent = '…';
+      const res = await api.sendQwen(qwenHistory);
+      btn.disabled = false; btn.textContent = 'Send';
+      const reply = (res && res.reply) || 'No response.';
+      appendQwen('bot', reply);
+      if (res && !res.offline) qwenHistory.push({ role: 'assistant', content: reply });
+    }
+
+    async function updateQwenStatus() {
+      const s = await api.fetchQwenStatus();
+      const el = document.getElementById('queenStatus');
+      const hint = document.getElementById('qwenHint');
+      if (s.online) {
+        el.className = 'queen-status online';
+        el.textContent = `👑 Qwen online · ${s.model || ''}`;
+        if (hint) hint.textContent = '';
+      } else {
+        el.className = 'queen-status offline';
+        el.textContent = '👑 Qwen offline';
+        if (hint) hint.textContent = 'Qwen is offline — start Ollama and pull the model to chat live. Other agents fall back to deterministic stubs.';
+      }
+    }
+
     // ===== INIT & POLLING =====
     function initUI() {
       // Nav listeners
@@ -1270,13 +1527,27 @@
       // Refresh button
       document.getElementById('refreshBtn').addEventListener('click', refreshDashboard);
 
+      // Niche + Queen controls
+      document.getElementById('runNicheBtn').addEventListener('click', runNiche);
+      document.getElementById('qwenSendBtn').addEventListener('click', sendQwen);
+      document.getElementById('qwenInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter') sendQwen();
+      });
+
       // Initial load
       refreshDashboard();
       updateTrends();
       updateEngagement();
+      updateQwenStatus();
 
-      // Auto-refresh
+      // Auto-refresh: the dashboard feed every 3.5s; queen status + active view less often.
       setInterval(refreshDashboard, 3500);
+      setInterval(() => {
+        updateQwenStatus();
+        if (state.currentView === 'review') updateReviews();
+        if (state.currentView === 'factcheck') updateFactchecks();
+        if (state.currentView === 'niche') updateNiche();
+      }, 5000);
     }
 
     document.addEventListener('DOMContentLoaded', initUI);

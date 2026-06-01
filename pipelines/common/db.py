@@ -75,6 +75,30 @@ CREATE TABLE IF NOT EXISTS code_patches (
     applied     INTEGER DEFAULT 0,
     created_at  REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS niche_research (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    niche        TEXT NOT NULL,               -- chosen niche/category
+    criteria_json TEXT,                       -- transparent scoring breakdown + ranked candidates
+    score        REAL DEFAULT 0.0,            -- winning niche score
+    created_at   REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS fact_checks (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    draft_id     INTEGER,
+    claim        TEXT NOT NULL,
+    verdict      TEXT,                        -- supported|uncertain|contradicted
+    rationale    TEXT,
+    created_at   REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS reviews (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    target       TEXT NOT NULL,               -- which agent/stage was reviewed
+    draft_id     INTEGER,
+    verdict      TEXT,                        -- pass|flag|redo
+    detail       TEXT,
+    resolved     INTEGER DEFAULT 0,           -- 1 once acted on / dismissed
+    created_at   REAL NOT NULL
+);
 """
 
 @contextmanager
@@ -229,3 +253,59 @@ def get_patches(n=50, applied_only=False) -> list:
 def apply_patch(patch_id: int) -> None:
     with conn() as c:
         c.execute("UPDATE code_patches SET applied=1 WHERE id=?", (patch_id,))
+
+# ---- niche research ----
+def add_niche(niche, criteria, score) -> int:
+    payload = criteria if isinstance(criteria, str) else json.dumps(criteria)
+    with conn() as c:
+        cur = c.execute(
+            "INSERT INTO niche_research(niche,criteria_json,score,created_at) VALUES(?,?,?,?)",
+            (niche, payload, score, time.time()),
+        )
+        return cur.lastrowid
+
+def recent_niche(n=20) -> list:
+    with conn() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT * FROM niche_research ORDER BY created_at DESC LIMIT ?", (n,)
+        ).fetchall()]
+
+# ---- fact checks ----
+def add_fact_check(draft_id, claim, verdict, rationale) -> int:
+    with conn() as c:
+        cur = c.execute(
+            "INSERT INTO fact_checks(draft_id,claim,verdict,rationale,created_at) VALUES(?,?,?,?,?)",
+            (draft_id, claim, verdict, rationale, time.time()),
+        )
+        return cur.lastrowid
+
+def fact_checks_for_draft(draft_id) -> list:
+    with conn() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT * FROM fact_checks WHERE draft_id=? ORDER BY id", (draft_id,)
+        ).fetchall()]
+
+def recent_fact_checks(n=50) -> list:
+    with conn() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT * FROM fact_checks ORDER BY created_at DESC LIMIT ?", (n,)
+        ).fetchall()]
+
+# ---- reviews ----
+def add_review(target, draft_id, verdict, detail) -> int:
+    with conn() as c:
+        cur = c.execute(
+            "INSERT INTO reviews(target,draft_id,verdict,detail,created_at) VALUES(?,?,?,?,?)",
+            (target, draft_id, verdict, detail, time.time()),
+        )
+        return cur.lastrowid
+
+def recent_reviews(n=50) -> list:
+    with conn() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT * FROM reviews ORDER BY created_at DESC LIMIT ?", (n,)
+        ).fetchall()]
+
+def resolve_review(review_id: int) -> None:
+    with conn() as c:
+        c.execute("UPDATE reviews SET resolved=1 WHERE id=?", (review_id,))

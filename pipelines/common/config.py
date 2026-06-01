@@ -80,6 +80,9 @@ TREND_BATCH_SIZE = int(os.getenv("TREND_BATCH_SIZE", "3"))
 # ---- AI Team autonomy (dashboard override for human control) ----
 AUTO_APPROVE = os.getenv("AUTO_APPROVE", "false").lower() in ("1", "true", "yes")
 AUTO_PATCH = os.getenv("AUTO_PATCH", "false").lower() in ("1", "true", "yes")
+# Reviewer agent: when true, auto-triggers redos on failed checks (e.g. user away).
+# Default false = gated: reviewer flags + proposes, waits for approval in the UI.
+AUTO_REDO = os.getenv("AUTO_REDO", "false").lower() in ("1", "true", "yes")
 
 # ---- Qwen Coder (separate model for code generation) ----
 QWEN_CODER_MODEL = os.getenv("QWEN_CODER_MODEL", "qwen2.5-coder:7b-instruct")

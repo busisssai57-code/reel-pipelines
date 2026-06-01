@@ -34,6 +34,36 @@ def _chat(system: str, user: str, want_json: bool = True) -> str:
     return resp.choices[0].message.content
 
 
+def is_online() -> bool:
+    """Quick reachability check for the local LLM endpoint (for UI badges)."""
+    import urllib.request
+    base = config.QWEN_BASE_URL.rstrip("/")
+    url = (base[:-3].rstrip("/") + "/api/tags") if base.endswith("/v1") else base + "/models"
+    try:
+        with urllib.request.urlopen(url, timeout=3) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+
+def chat(messages: list[dict], system: str | None = None,
+         temperature: float = 0.7) -> str:
+    """Free-form multi-turn chat with the queen (Qwen). Raises if endpoint is down.
+
+    `messages` is a list of {role, content}. Used by the Reel Studio chat widget
+    and by agents that need open-ended reasoning rather than strict JSON.
+    """
+    if _client is None:
+        raise RuntimeError("openai client unavailable")
+    msgs = ([{"role": "system", "content": system}] if system else []) + list(messages)
+    resp = _client.chat.completions.create(
+        model=config.QWEN_MODEL,
+        messages=msgs,
+        temperature=temperature,
+    )
+    return resp.choices[0].message.content
+
+
 def _json(system: str, user: str, fallback: dict) -> dict:
     try:
         raw = _chat(system, user, want_json=True)
@@ -140,6 +170,71 @@ def seed_topics(pipeline: str, n: int, profile: dict | None = None) -> list[str]
     while len(out) < n:
         out.append(f"Backup topic {len(out)+1}")
     return out[:n]
+
+
+def fact_check(script: str, max_claims: int = 5) -> list[dict]:
+    """Extract factual claims from a script and verdict each.
+
+    Returns [{claim, verdict in [supported,uncertain,contradicted], rationale}].
+    Offline fallback marks everything 'uncertain' so nothing is falsely asserted.
+    """
+    sys = ("You are a rigorous fact-checker. Output JSON only. Extract the "
+           "checkable factual claims from the script (ignore opinions/hooks). "
+           "For each, give a verdict of 'supported', 'uncertain', or "
+           "'contradicted' based on well-established knowledge, plus a one-line "
+           "rationale. Be conservative: use 'uncertain' when unsure.")
+    user = (f'Script: """{script[:2000]}""". Return JSON: '
+            f'{{"claims": [up to {max_claims} of '
+            '{"claim": str, "verdict": one of [supported,uncertain,contradicted], '
+            '"rationale": str}]}}')
+    # Deterministic fallback: split into sentences, mark uncertain.
+    import re as _re
+    sents = [s.strip() for s in _re.split(r"(?<=[.!?])\s+", script) if len(s.strip()) > 15]
+    fb = {"claims": [{"claim": s, "verdict": "uncertain",
+                      "rationale": "LLM offline; not verified."}
+                     for s in sents[:max_claims]]}
+    out = _json(sys, user, fb).get("claims", [])
+    norm = []
+    for c in out[:max_claims]:
+        v = str(c.get("verdict", "uncertain")).lower()
+        if v not in ("supported", "uncertain", "contradicted"):
+            v = "uncertain"
+        norm.append({"claim": c.get("claim", "")[:400], "verdict": v,
+                     "rationale": c.get("rationale", "")[:400]})
+    return norm
+
+
+def select_niche(candidates: list[dict]) -> dict:
+    """Pick the best content niche from scored candidates, with transparent criteria.
+
+    `candidates` = [{niche/topic, score, source}]. Returns
+    {niche, score, criteria:[{niche, score, reason}]}. Offline fallback picks the
+    highest provided score deterministically.
+    """
+    ranked_fb = sorted(candidates, key=lambda c: c.get("score", 0), reverse=True)
+    top_fb = ranked_fb[0] if ranked_fb else {"niche": "default", "score": 0.0}
+    fb = {
+        "niche": top_fb.get("niche") or top_fb.get("topic") or "default",
+        "score": round(float(top_fb.get("score", 0.0)), 3),
+        "criteria": [
+            {"niche": c.get("niche") or c.get("topic") or "default",
+             "score": round(float(c.get("score", 0.0)), 3),
+             "reason": f"prior+trend signal {c.get('source','')}".strip()}
+            for c in ranked_fb[:5]
+        ],
+    }
+    if not candidates:
+        return fb
+    sys = ("You are a content strategist. Output JSON only. Given candidate niches "
+           "with signal scores, pick the single best niche for short-form viral "
+           "reels and justify with transparent criteria (audience size, evergreen "
+           "potential, production feasibility, signal strength).")
+    listing = "; ".join(f"{c.get('niche') or c.get('topic')}={c.get('score',0):.3f}"
+                        for c in ranked_fb[:8])
+    user = (f'Candidates: {listing}. Return JSON: '
+            '{"niche": str, "score": number, '
+            '"criteria": [{"niche": str, "score": number, "reason": str}]}')
+    return _json(sys, user, fb)
 
 
 def thumbnail_titles(topic: str, title: str, n: int = 4) -> list[dict]:

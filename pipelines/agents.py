@@ -21,6 +21,24 @@ from .common import bus, db, qwen_client, supervisor, ffmpeg_build, config, thum
 log = logging.getLogger("agents")
 
 
+# Human-readable role + "what it waits for", surfaced live in the dashboard so
+# the UI can show what each agent does / did / will do next (not just a status dot).
+ROLES: dict[str, tuple[str, str]] = {
+    "trigger":        ("Creates render jobs from UI / cron / reject loop", "render_request"),
+    "visual_qa":      ("Checks a finished reel's duration vs. its voiceover", "render_done"),
+    "audience_feedback": ("Turns engagement signals into a learning reward", "published / feedback"),
+    "auto_post":      ("Queues an approved draft for publishing", "approved"),
+    "variant_gen":    ("Builds viral title/thumbnail packaging variants", "qa_pass / make_variants"),
+    "episodes":       ("Generates and reproduces series episodes", "new_episode"),
+    "trend_research": ("Discovers + ranks trending topics", "niche_selected / trend_cycle_start"),
+    "production_orchestrator": ("Runs Pipeline A/B for chosen topics", "topics_ready"),
+    "auto_approve":   ("Approves drafts (auto or human-gated)", "production_complete"),
+    "distribution":   ("Publishes approved drafts to YouTube/TikTok", "approved / publish_request"),
+    "engagement_feedback": ("Polls platform metrics, feeds the learning loop", "distributed / engagement_poll"),
+    "qwen_coder":     ("Generates code patches from errors", "agent_error / stage_error"),
+}
+
+
 @dataclass
 class Agent:
     name: str
@@ -28,20 +46,38 @@ class Agent:
     status: str = "idle"
     last_run: float | None = None
     breaker: supervisor.CircuitBreaker = field(default=None)
+    role: str = ""
+    waits_for: str = ""
+    last_action: dict | None = None   # {type, note, ts} of the most recent handled event
 
     def __post_init__(self):
         if self.breaker is None:
             self.breaker = supervisor.CircuitBreaker(self.name)
+        if not self.role or not self.waits_for:
+            r, w = ROLES.get(self.name, ("", ", ".join(self.subscribes)))
+            self.role = self.role or r
+            self.waits_for = self.waits_for or w
 
     def handle(self, event: dict) -> list[dict]:
         return []
 
     def health(self) -> dict:
         return {"name": self.name, "status": self.status,
-                "last_run": self.last_run, "circuit_open": self.breaker.open}
+                "last_run": self.last_run, "circuit_open": self.breaker.open,
+                "role": self.role, "waits_for": self.waits_for,
+                "last_action": self.last_action}
 
     def fallback(self, event: dict):
         return None
+
+    def _summarize(self, event: dict, out) -> str:
+        """One-line 'what it just did' for the live feed."""
+        note = event.get("note") or ""
+        if isinstance(out, list) and out:
+            first = out[0]
+            if isinstance(first, dict):
+                note = note or first.get("type") or first.get("status") or ""
+        return str(note)[:160]
 
     # called by the runner
     def _dispatch(self, event: dict):
@@ -50,10 +86,15 @@ class Agent:
         try:
             out = supervisor.guard(self.name, self.handle, event,
                                    breaker=self.breaker, fallback=self.fallback)
+            self.last_action = {"type": event.get("type", ""),
+                                "note": self._summarize(event, out),
+                                "ts": time.time()}
             self.status = "healing" if self.breaker.open else "idle"
             return out or []
         except Exception as e:
             self.status = "failed"
+            self.last_action = {"type": event.get("type", ""),
+                                "note": f"error: {e!r}"[:160], "ts": time.time()}
             bus.emit(event.get("job_id"), self.name, "agent_error", repr(e))
             return []
 

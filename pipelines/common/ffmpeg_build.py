@@ -131,6 +131,43 @@ def finalize(video_track: Path, vo_wav: Path, ass: Path, music: Path | None,
     return out_mp4
 
 
+def enhance_audio(mp4: Path, cues: list[dict], sfx_paths: dict,
+                  out_mp4: Path) -> Path:
+    """Overlay timed SFX onto a finished reel and re-master the audio.
+
+    `cues` = [{t: seconds, sfx: name, gain: linear}]; `sfx_paths` = {name: Path}.
+    Video is stream-copied (no re-encode); audio is mixed with the SFX, then
+    loudness-limited. Returns out_mp4. If there are no usable cues, the input is
+    copied through unchanged so callers always get a valid file.
+    """
+    mp4, out_mp4 = Path(mp4), Path(out_mp4)
+    out_mp4.parent.mkdir(parents=True, exist_ok=True)
+    usable = [c for c in cues if sfx_paths.get(c.get("sfx"))]
+    if not usable:
+        _run(["-i", mp4, "-c", "copy", out_mp4])
+        return out_mp4
+
+    inputs = ["-i", mp4]
+    parts, labels = [], []
+    for i, c in enumerate(usable, start=1):
+        inputs += ["-i", str(sfx_paths[c["sfx"]])]
+        delay_ms = int(max(0.0, float(c.get("t", 0))) * 1000)
+        gain = float(c.get("gain", 0.5))
+        parts.append(f"[{i}:a]adelay={delay_ms}|{delay_ms},volume={gain}[s{i}]")
+        labels.append(f"[s{i}]")
+    # original audio (label [0:a]) + all delayed SFX -> amix without auto-attenuation
+    n = len(usable) + 1
+    mix = (";".join(parts) + ";" +
+           "[0:a]" + "".join(labels) +
+           f"amix=inputs={n}:duration=first:normalize=0,"
+           "alimiter=limit=0.95[aout]")
+    _run([*inputs, "-filter_complex", mix,
+          "-map", "0:v", "-map", "[aout]",
+          "-c:v", "copy", "-c:a", config.AUDIO_CODEC, "-b:a", "192k",
+          "-movflags", "+faststart", out_mp4])
+    return out_mp4
+
+
 def build_visual_from_images(images: list[Path], total_dur: float, workdir: Path) -> Path:
     workdir.mkdir(parents=True, exist_ok=True)
     n = max(1, len(images))
