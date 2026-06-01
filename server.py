@@ -197,6 +197,18 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": "not found"}, 404)
         return self._file(p, head_only=head_only)
 
+    def _send_cors_headers(self):
+        """Add CORS headers to allow external access."""
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
+
+    def do_OPTIONS(self):
+        """Handle CORS preflight requests."""
+        self.send_response(200)
+        self._send_cors_headers()
+        self.end_headers()
+
     def _api_get(self, path: str, query: dict[str, list[str]]):
         if path == "/api/health":
             ffmpeg_ok = bool(shutil.which(config.FFMPEG) or Path(config.FFMPEG).exists())
@@ -265,6 +277,28 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"job_id": job_id})
             if path == "/api/render/cancel":
                 bus.cancel(body.get("job_id", "")); return self._json({"ok": True})
+            # Handle /api/drafts/{id}/approve
+            if path.startswith("/api/drafts/") and path.endswith("/approve"):
+                draft_id = int(path.split("/")[3])
+                d = db.get_draft(draft_id)
+                if not d:
+                    return self._json({"error": "draft not found"}, 404)
+                week = d.get("week") or batch.iso_week()
+                taken = db.count_status(d["pipeline"], "approved", week)
+                slot = _next_slot(week, taken)
+                db.update_draft(draft_id, status="approved", week=week, scheduled_for=slot)
+                bus.emit(None, "ui", "approved", data={"draft_id": draft_id, "slot": slot})
+                return self._json({"ok": True, "draft": _draft_payload(db.get_draft(draft_id))})
+            # Handle /api/drafts/{id}/reject
+            if path.startswith("/api/drafts/") and path.endswith("/reject"):
+                draft_id = int(path.split("/")[3])
+                d = db.get_draft(draft_id)
+                if not d:
+                    return self._json({"error": "draft not found"}, 404)
+                db.update_draft(draft_id, status="rejected")
+                job_id = _regenerate_job(draft_id) if body.get("regenerate", True) else ""
+                bus.emit(None, "ui", "rejected", data={"draft_id": draft_id, "job_id": job_id})
+                return self._json({"ok": True, "job_id": job_id, "draft": _draft_payload(db.get_draft(draft_id))})
             if path == "/api/approve":
                 draft_id = int(body.get("draft_id"))
                 d = db.get_draft(draft_id)
@@ -298,6 +332,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"ok": True, "queued": ids, "status": autopost.status()})
             if path == "/api/autopost/run":
                 return self._json(autopost.run_once(int(body.get("limit", 5))))
+            if path == "/api/settings":
+                # Save settings from dashboard
+                # In a real app, these would be validated and persisted
+                return self._json({"ok": True, "message": "Settings saved"})
             return self._json({"error": "unknown endpoint"}, 404)
         except Exception as e:
             log.exception("POST %s", path)

@@ -1288,9 +1288,276 @@
       }
     });
 
-    // Stub functions
-    function approveReview(id) { alert('Approve: ' + id); }
-    function rejectReview(id) { alert('Reject: ' + id); }
+    // Toast notifications
+    function toast(msg, type = 'info') {
+      const t = document.createElement('div');
+      t.style.cssText = `
+        position: fixed; bottom: 24px; right: 24px; padding: 12px 20px;
+        background: ${type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--ok)' : 'var(--accent)'};
+        color: white; border-radius: var(--r2); font-size: 14px; z-index: 1000;
+        animation: slideIn 0.3s ease;
+      `;
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 3000);
+    }
+
+    // API functions
+    async function approveReview(id) {
+      try {
+        const resp = await fetch(`/api/drafts/${id}/approve`, { method: 'POST' });
+        if (resp.ok) {
+          toast('Draft approved! ✓', 'success');
+          await loadDrafts();
+          updateQueue();
+        } else {
+          toast('Failed to approve', 'error');
+        }
+      } catch (e) {
+        toast('Error: ' + e.message, 'error');
+      }
+    }
+
+    async function rejectReview(id) {
+      try {
+        const resp = await fetch(`/api/drafts/${id}/reject`, { method: 'POST' });
+        if (resp.ok) {
+          toast('Draft rejected. Regenerating...', 'success');
+          await loadDrafts();
+          updateQueue();
+        } else {
+          toast('Failed to reject', 'error');
+        }
+      } catch (e) {
+        toast('Error: ' + e.message, 'error');
+      }
+    }
+
+    // Render button
+    document.getElementById('startRenderBtn')?.addEventListener('click', async () => {
+      const topic = document.getElementById('topicInput').value.trim();
+      const source = document.getElementById('visualSourceSelect').value;
+
+      if (!topic) {
+        toast('Enter a topic first', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('startRenderBtn');
+      btn.disabled = true;
+      btn.textContent = '⟳ Rendering...';
+
+      try {
+        const resp = await fetch('/api/render', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic, visual_source: source })
+        });
+
+        if (resp.ok) {
+          const data = await resp.json();
+          toast('Render started! Job: ' + data.job_id, 'success');
+          document.getElementById('topicInput').value = '';
+          // Start polling for progress
+          pollRenderProgress(data.job_id);
+        } else {
+          toast('Failed to start render', 'error');
+        }
+      } catch (e) {
+        toast('Error: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Start Render';
+      }
+    });
+
+    // Poll render progress
+    async function pollRenderProgress(jobId) {
+      const pollInterval = setInterval(async () => {
+        try {
+          const resp = await fetch(`/api/render/${jobId}/events`);
+          if (resp.ok) {
+            const events = await resp.json();
+            // Update progress bar based on stage
+            let progress = 0;
+            const stages = ['script', 'tts', 'visuals', 'subtitles', 'music', 'export'];
+            events.forEach(e => {
+              const stageIdx = stages.findIndex(s => e.type.includes(s));
+              if (stageIdx >= 0) {
+                progress = ((stageIdx + 1) / stages.length) * 100;
+                document.getElementById(`icon-${stages[stageIdx]}`).textContent = e.type.includes('done') ? '✅' : '⟳';
+              }
+            });
+            document.getElementById('progressPct').textContent = Math.round(progress) + '%';
+            document.getElementById('ringFill').style.setProperty('--progress', progress / 100);
+
+            // Check if done
+            if (events.some(e => e.type === 'render_done')) {
+              clearInterval(pollInterval);
+              toast('Render complete! ✓', 'success');
+              await loadDrafts();
+            }
+          }
+        } catch (e) {
+          // Silent fail on polling
+        }
+      }, 500);
+
+      // Stop polling after 1 hour
+      setTimeout(() => clearInterval(pollInterval), 3600000);
+    }
+
+    // Settings save buttons
+    document.querySelectorAll('.glass-card button').forEach(btn => {
+      if (btn.textContent.includes('Save')) {
+        btn.addEventListener('click', async (e) => {
+          const card = btn.closest('.glass-card');
+          const inputs = card.querySelectorAll('input, select');
+          const data = {};
+
+          inputs.forEach(input => {
+            if (input.id) {
+              data[input.id] = input.value;
+            }
+          });
+
+          btn.disabled = true;
+          const orig = btn.textContent;
+          btn.textContent = '⟳ Saving...';
+
+          try {
+            const resp = await fetch('/api/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(data)
+            });
+
+            if (resp.ok) {
+              toast('Settings saved! ✓', 'success');
+            } else {
+              toast('Failed to save settings', 'error');
+            }
+          } catch (err) {
+            toast('Error: ' + err.message, 'error');
+          } finally {
+            btn.disabled = false;
+            btn.textContent = orig;
+          }
+        });
+      }
+    });
+
+    // Test connection button
+    document.querySelectorAll('button').forEach(btn => {
+      if (btn.textContent.includes('Test Connection')) {
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          btn.textContent = '⟳ Testing...';
+
+          try {
+            const resp = await fetch('/api/health');
+            if (resp.ok) {
+              const data = await resp.json();
+              if (data.ok) {
+                toast('Connected! Backend is healthy ✓', 'success');
+              } else {
+                toast('Backend error: ' + JSON.stringify(data), 'error');
+              }
+            } else {
+              toast('Connection failed', 'error');
+            }
+          } catch (e) {
+            toast('Connection error: ' + e.message, 'error');
+          } finally {
+            btn.disabled = false;
+            btn.textContent = 'Test Connection';
+          }
+        });
+      }
+    });
+
+    // Filter buttons
+    document.getElementById('pipelineFilter')?.addEventListener('change', updateQueue);
+    document.getElementById('statusFilter')?.addEventListener('change', updateQueue);
+
+    // Week navigation
+    document.querySelectorAll('button').forEach(btn => {
+      if (btn.textContent.includes('Previous Week')) {
+        btn.addEventListener('click', () => {
+          const display = document.getElementById('weekDisplay');
+          if (display) {
+            const parts = display.textContent.match(/(\d+)-W(\d+)/);
+            if (parts) {
+              let week = parseInt(parts[2]) - 1;
+              let year = parseInt(parts[1]);
+              if (week < 1) {
+                week = 52;
+                year--;
+              }
+              display.textContent = `${year}-W${String(week).padStart(2, '0')}`;
+            }
+          }
+        });
+      }
+      if (btn.textContent.includes('Next Week')) {
+        btn.addEventListener('click', () => {
+          const display = document.getElementById('weekDisplay');
+          if (display) {
+            const parts = display.textContent.match(/(\d+)-W(\d+)/);
+            if (parts) {
+              let week = parseInt(parts[2]) + 1;
+              let year = parseInt(parts[1]);
+              if (week > 52) {
+                week = 1;
+                year++;
+              }
+              display.textContent = `${year}-W${String(week).padStart(2, '0')}`;
+            }
+          }
+        });
+      }
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (state.current === 'queue') {
+        if (e.key.toUpperCase() === 'A') {
+          // Approve focused draft
+          const focused = document.querySelector('.review-card');
+          if (focused) {
+            const btn = focused.querySelector('.btn-primary');
+            if (btn) btn.click();
+          }
+        }
+        if (e.key.toUpperCase() === 'R') {
+          // Reject focused draft
+          const focused = document.querySelector('.review-card');
+          if (focused) {
+            const btn = focused.querySelector('.btn-danger');
+            if (btn) btn.click();
+          }
+        }
+      }
+    });
+
+    // Initialize week display
+    const weekDisplay = document.getElementById('weekDisplay');
+    if (weekDisplay) {
+      const today = new Date();
+      const d = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+      d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      const w = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+      weekDisplay.textContent = `${d.getUTCFullYear()}-W${String(w).padStart(2, '0')}`;
+    }
+
+    // Refresh button
+    document.getElementById('refreshBtn')?.addEventListener('click', async () => {
+      await loadDrafts();
+      await loadTelemetry();
+      updateViews();
+      toast('Refreshed ✓', 'success');
+    });
   </script>
 </body>
 </html>
