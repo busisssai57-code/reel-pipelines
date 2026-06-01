@@ -1,0 +1,29 @@
+# --- Orchestration / LLM (qwen via OpenAI-compatible local server, e.g. Ollama or vLLM) ---
+openai>=1.40.0          # used only as an HTTP client against a LOCAL qwen endpoint
+httpx>=0.27.0
+
+# --- Local TTS ---
+kokoro>=0.7.0           # Kokoro TTS (local, open weights)
+soundfile>=0.12.1
+numpy>=1.26.0
+
+# --- Timestamps ---
+faster-whisper>=1.0.3   # word-level timestamps (falls back to openai-whisper if missing)
+
+# --- Media acquisition (free/CC public APIs) ---
+requests>=2.32.0
+
+# --- Discord approval loop + scheduler ---
+discord.py>=2.4.0
+APScheduler>=3.10.4
+python-dotenv>=1.0.1
+
+# --- Optional: local image generation for Pipeline A ---
+# diffusers>=0.30.0
+# torch>=2.3.0
+# transformers>=4.44.0
+# accelerate>=0.33.0
+#
+# NOTE: FFmpeg is required and must be installed separately (it is NOT a pip package):
+#   winget install Gyan.FFmpeg     (Windows)
+#   or download from https://www.gyan.dev/ffmpeg/builds/ and add bin/ to PATH

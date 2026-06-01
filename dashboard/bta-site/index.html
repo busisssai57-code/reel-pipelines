@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Reel Pipeline — Studio</title>
+<style>
+  :root{
+    --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;
+    --r1:6px;--r2:12px;--touch:44px;
+    --bg:#f4f5f7;--surface:#ffffff;--surface2:#fbfbfd;--line:#e3e5ea;
+    --text:#15171c;--muted:#5b6170;--accent:#4f6df5;--accent-ink:#fff;
+    --ok:#1f9d57;--danger:#d23f3f;--warn:#c9821a;
+    --hist:#2a4d6e;--geo:#2f6e4a;--sci:#6e2a2a;--def:#444b58;
+    --shadow:0 1px 2px rgba(20,23,28,.06),0 4px 16px rgba(20,23,28,.06);
+    --font:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#0e1014;--surface:#171a21;--surface2:#1c1f28;--line:#2a2e39;
+      --text:#eef0f4;--muted:#9aa1b1;--accent:#7d93ff;--shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);}
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:var(--font);background:
+    radial-gradient(900px 420px at 20% -10%,color-mix(in srgb,var(--accent) 24%,transparent),transparent 58%),
+    radial-gradient(700px 360px at 100% 0%,rgba(42,208,192,.18),transparent 62%),
+    var(--bg);color:var(--text);
+    font-size:clamp(14px,1.4vw,16px);line-height:1.45;-webkit-font-smoothing:antialiased}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;z-index:-1;
+    background:linear-gradient(115deg,transparent 0 42%,rgba(255,255,255,.18) 48%,transparent 54% 100%);
+    animation:sweep 12s ease-in-out infinite}
+  button{font:inherit;cursor:pointer}
+  :focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:var(--r1)}
+  .visually-hidden{position:absolute;width:1px;height:1px;clip:rect(0 0 0 0);overflow:hidden}
+  [hidden]{display:none!important}
+
+  .app{display:grid;grid-template-columns:248px 1fr;grid-template-rows:auto 1fr;
+    grid-template-areas:"side bar" "side main";min-height:100vh}
+  .topbar{grid-area:bar;display:flex;align-items:center;gap:var(--s4);
+    padding:var(--s3) var(--s5);background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+  .side{grid-area:side;background:var(--surface);border-right:1px solid var(--line);padding:var(--s4) var(--s3);position:sticky;top:0;height:100vh;overflow:auto}
+  main{grid-area:main;padding:var(--s5);max-width:1440px;width:100%}
+  .brand{display:flex;align-items:center;gap:var(--s2);font-weight:700;font-size:18px;margin:var(--s2) var(--s2) var(--s5)}
+  .brand .dot{width:22px;height:22px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#2ad0c0)}
+  nav.side-nav{display:flex;flex-direction:column;gap:2px}
+  .nav-link{display:flex;align-items:center;gap:var(--s3);padding:0 var(--s3);min-height:var(--touch);border-radius:var(--r1);color:var(--muted);text-decoration:none;font-weight:600}
+  .nav-link:hover{background:var(--surface2)}
+  .nav-link[aria-current=page]{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+  .nav-link .ico{width:20px;text-align:center}
+
+  .week{display:flex;align-items:center;gap:var(--s2);background:var(--surface2);border:1px solid var(--line);border-radius:var(--r1);padding:0 var(--s3);min-height:38px;font-weight:600}
+  .week select{border:0;background:transparent;color:inherit;font:inherit;font-weight:600}
+  .spacer{flex:1}
+  .meter{display:flex;align-items:center;gap:var(--s2);font-weight:600}
+  .meter .track{width:160px;height:10px;border-radius:99px;background:var(--surface2);border:1px solid var(--line);overflow:hidden}
+  .meter .fill{height:100%;background:linear-gradient(90deg,var(--accent),#2ad0c0);transition:width .3s ease}
+  .chip{display:inline-flex;align-items:center;gap:var(--s2);padding:var(--s1) var(--s3);border-radius:99px;font-weight:600;font-size:13px;border:1px solid var(--line);background:var(--surface2)}
+  .chip .led{width:9px;height:9px;border-radius:99px;background:var(--ok)}
+  .chip.offline .led{background:var(--warn)} .chip.offline{color:var(--warn)}
+
+  h1{font-size:clamp(20px,3vw,28px);margin:0 0 var(--s4)}
+  h2{font-size:18px;margin:var(--s5) 0 var(--s3)}
+  .muted{color:var(--muted)}
+  .cards{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .panel{background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(16px);
+    border:1px solid color-mix(in srgb,var(--line) 84%,white 16%);border-radius:var(--r2);padding:var(--s5);box-shadow:var(--shadow)}
+  .pl-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s3)}
+  .counts{display:flex;gap:var(--s4);margin:var(--s4) 0;font-weight:700}
+  .counts span{display:flex;align-items:center;gap:6px}
+  .btn{min-height:var(--touch);padding:0 var(--s5);border-radius:var(--r1);border:1px solid var(--line);background:var(--surface2);color:var(--text);font-weight:700;display:inline-flex;align-items:center;gap:var(--s2);justify-content:center}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  .btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+  .btn.danger{background:transparent;border-color:var(--danger);color:var(--danger)}
+  .btn[disabled]{opacity:.5;cursor:default}
+
+  .qbar{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s4)}
+  .seg{display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:var(--r1);overflow:hidden}
+  .seg button{min-height:38px;padding:0 var(--s4);border:0;background:transparent;color:var(--muted);font-weight:700}
+  .seg button[aria-pressed=true]{background:var(--accent);color:#fff}
+
+  .grid{display:grid;gap:var(--s4);grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+  .draft{background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
+  .poster{aspect-ratio:9/16;position:relative;display:flex;align-items:flex-end;color:#fff;background-size:cover;background-position:center}
+  .poster .play{position:absolute;inset:0;margin:auto;width:54px;height:54px;border-radius:99px;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}
+  .poster .cap{position:absolute;left:8px;right:8px;bottom:42px;text-align:center;font-weight:800;font-size:15px;text-shadow:0 2px 6px rgba(0,0,0,.8);line-height:1.2}
+  .poster .meta{position:relative;width:100%;padding:8px;background:linear-gradient(transparent,rgba(0,0,0,.65));display:flex;gap:6px}
+  .tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:99px;color:#fff;letter-spacing:.02em}
+  .tag.history{background:var(--hist)} .tag.geography{background:var(--geo)} .tag.science{background:var(--sci)} .tag.default{background:var(--def)} .tag.pl{background:rgba(255,255,255,.22)}
+  .body{padding:var(--s3) var(--s4) var(--s4);display:flex;flex-direction:column;gap:var(--s2);flex:1}
+  .body h3{margin:0;font-size:16px}
+  .body .sub{font-size:13px;color:var(--muted)}
+  .script{font-size:13px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2);margin-top:auto}
+  .state{font-size:13px;font-weight:700;padding:var(--s2);border-radius:var(--r1);text-align:center}
+  .state.approved{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+  .state.rejected{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
+  .state.failed{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+
+  .sched{display:grid;grid-template-columns:repeat(7,1fr);gap:var(--s2);overflow-x:auto}
+  .day{background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s3);min-height:160px}
+  .day h4{margin:0 0 var(--s2);font-size:13px;color:var(--muted)}
+  .slot{font-size:12px;font-weight:700;color:#fff;border-radius:var(--r1);padding:6px 8px;margin-bottom:6px}
+
+  /* render studio */
+  .studio{display:grid;grid-template-columns:minmax(220px,300px) 1fr;gap:var(--s5)}
+  .preview{aspect-ratio:9/16;border-radius:var(--r2);border:1px solid var(--line);background:
+      repeating-linear-gradient(45deg,var(--surface2),var(--surface2) 12px,var(--surface) 12px,var(--surface) 24px);
+      display:grid;place-items:center;color:var(--muted);position:relative;overflow:hidden}
+  .preview .frame{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity .4s}
+  .gpu{display:inline-flex;gap:var(--s2);align-items:center;font-weight:700}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:var(--s3)}
+  .field label{font-size:13px;color:var(--muted);font-weight:700}
+  .field input,.field select,.field textarea{background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:var(--r1);padding:10px 12px;font:inherit}
+  .trigger{width:100%;min-height:64px;font-size:18px;border-radius:var(--r2);border:0;color:#fff;font-weight:800;letter-spacing:.02em;
+    background:linear-gradient(135deg,var(--accent),#2ad0c0);box-shadow:0 10px 30px color-mix(in srgb,var(--accent) 35%,transparent);transition:transform .08s}
+  .trigger:active{transform:scale(.98)}
+  .trigger[disabled]{filter:grayscale(.4);opacity:.7}
+  .ring{--p:0;width:120px;height:120px;border-radius:99px;display:grid;place-items:center;margin:var(--s4) auto;font-weight:800;
+    background:conic-gradient(var(--accent) calc(var(--p)*1%),var(--surface2) 0)}
+  .ring span{background:var(--surface);width:96px;height:96px;border-radius:99px;display:grid;place-items:center}
+  .log{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:var(--surface2);border:1px solid var(--line);border-radius:var(--r1);padding:var(--s3);max-height:200px;overflow:auto}
+  .log div{padding:2px 0;border-bottom:1px solid var(--line)}
+
+  .agentrail{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:var(--s3);margin:var(--s5) 0}
+  .agentpulse{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);padding:var(--s4);min-height:96px}
+  .agentpulse::after{content:"";position:absolute;inset:auto -30% 0 -30%;height:3px;background:linear-gradient(90deg,transparent,var(--accent),#2ad0c0,transparent);animation:scan 2.8s linear infinite}
+  .agentpulse strong{display:block;margin-bottom:var(--s2)}
+  .agentpulse .dot{display:inline-block;width:9px;height:9px;border-radius:99px;margin-right:6px;background:var(--ok);box-shadow:0 0 16px var(--ok)}
+  .agentpulse.running .dot{background:var(--accent);box-shadow:0 0 18px var(--accent);animation:pulse 1s ease-in-out infinite}
+  .agentpulse.healing .dot{background:var(--warn);box-shadow:0 0 18px var(--warn)}
+  .agentpulse.failed .dot{background:var(--danger);box-shadow:0 0 18px var(--danger)}
+  .activity-list{display:grid;gap:var(--s2)}
+  .activity-item{display:grid;grid-template-columns:110px 110px 1fr;gap:var(--s3);align-items:start;padding:var(--s3);border:1px solid var(--line);border-radius:var(--r1);background:var(--surface2)}
+  .activity-item code{color:var(--accent);font-weight:800}
+
+  /* agents */
+  .agentcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);box-shadow:var(--shadow)}
+  .pill{font-size:12px;font-weight:800;padding:3px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.04em}
+  .pill.idle{background:var(--surface2);color:var(--muted)}
+  .pill.running{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+  .pill.healing{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}
+  .pill.failed{background:color-mix(in srgb,var(--danger) 18%,transparent);color:var(--danger)}
+
+  .toasts{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);display:flex;flex-direction:column;gap:var(--s2);z-index:50}
+  @media(min-width:905px){.toasts{bottom:24px}}
+  .toast{background:var(--text);color:var(--bg);padding:var(--s3) var(--s4);border-radius:99px;font-weight:600;display:flex;gap:var(--s4);align-items:center;box-shadow:var(--shadow)}
+  .toast button{background:transparent;border:0;color:var(--accent);font-weight:800}
+
+  .tabs{display:none}
+  @media (max-width:904px){
+    .app{grid-template-columns:1fr;grid-template-areas:"bar" "main"}
+    .side{display:none}
+    main{padding:var(--s4) var(--s4) 84px}
+    .studio{grid-template-columns:1fr}
+    .tabs{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--line);z-index:30;padding-bottom:env(safe-area-inset-bottom)}
+    .tabs a{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:56px;justify-content:center;text-decoration:none;color:var(--muted);font-size:11px;font-weight:700}
+    .tabs a[aria-current=page]{color:var(--accent)}
+    .meter .track{width:96px}.week{font-size:13px}
+  }
+  @keyframes pulse{0%,100%{transform:scale(1);opacity:.75}50%{transform:scale(1.45);opacity:1}}
+  @keyframes scan{from{transform:translateX(-50%)}to{transform:translateX(50%)}}
+  @keyframes sweep{0%,100%{transform:translateX(-30%);opacity:.08}50%{transform:translateX(30%);opacity:.18}}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<a class="visually-hidden" href="#main">Skip to content</a>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="dot" aria-hidden="true"></span> Reel Studio</div>
+    <nav class="side-nav" aria-label="Primary">
+      <a class="nav-link" data-view="dash" href="#dash"><span class="ico" aria-hidden="true">▣</span> Dashboard</a>
+      <a class="nav-link" data-view="queue" href="#queue"><span class="ico" aria-hidden="true">▤</span> Review Queue</a>
+      <a class="nav-link" data-view="render" href="#render"><span class="ico" aria-hidden="true">✦</span> Render Studio</a>
+      <a class="nav-link" data-view="agents" href="#agents"><span class="ico" aria-hidden="true">⬡</span> Agents</a>
+      <a class="nav-link" data-view="variants" href="#variants"><span class="ico" aria-hidden="true">❖</span> Variant Lab</a>
+      <a class="nav-link" data-view="episodes" href="#episodes"><span class="ico" aria-hidden="true">▷</span> Episodes</a>
+      <a class="nav-link" data-view="sched" href="#sched"><span class="ico" aria-hidden="true">▦</span> Schedule</a>
+      <a class="nav-link" data-view="settings" href="#settings"><span class="ico" aria-hidden="true">⚙</span> Settings</a>
+    </nav>
+  </aside>
+
+  <header class="topbar">
+    <label class="week">Week
+      <select id="week" aria-label="Select week"><option>2026-W23</option><option>2026-W22</option></select>
+    </label>
+    <div class="spacer"></div>
+    <div class="meter" title="Approved & scheduled of total">
+      <span id="meterLabel">0 / 42</span>
+      <span class="track" role="progressbar" aria-valuemin="0" aria-valuemax="42" aria-valuenow="0" aria-label="Cycle progress"><span class="fill" id="meterFill" style="width:0%"></span></span>
+    </div>
+    <button class="chip" id="syncChip" aria-live="polite"><span class="led"></span><span id="syncText">Mock</span></button>
+  </header>
+
+  <main id="main" tabindex="-1"><div id="banner" hidden></div><section id="view"></section></main>
+</div>
+
+<nav class="tabs" aria-label="Primary">
+  <a data-view="dash" href="#dash"><span aria-hidden="true">▣</span>Dash</a>
+  <a data-view="queue" href="#queue"><span aria-hidden="true">▤</span>Queue</a>
+  <a data-view="render" href="#render"><span aria-hidden="true">✦</span>Render</a>
+  <a data-view="agents" href="#agents"><span aria-hidden="true">⬡</span>Agents</a>
+  <a data-view="sched" href="#sched"><span aria-hidden="true">▦</span>Sched</a>
+</nav>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<script>
+// ---------- API layer: try the local backend, fall back to mock ----------
+const qp=new URLSearchParams(location.search);
+let API = qp.get('api') || localStorage.getItem('apiBase') ||
+  (((location.protocol==='http:'||location.protocol==='https:') && location.port==='8787') ? location.origin : 'http://127.0.0.1:8787');
+let LIVE=false, ENGINE="Hunyuan Video", HUN=false, REAL_DRAFTS=false;
+let AGENTS=[], EVENTS=[], JOBS=[], AUTOPOST={counts:{},recent:[]};
+async function api(path,opts){const headers={'Content-Type':'application/json'};const key=localStorage.getItem('apiKey');if(key)headers['X-API-Key']=key;
+  const r=await fetch(API+path,Object.assign({headers},opts));if(!r.ok)throw new Error(r.status);return r.json()}
+function setApi(url){url=(url||'').trim().replace(/\/+$/,'');if(url){localStorage.setItem('apiBase',url);API=url}else{localStorage.removeItem('apiBase')}detect().then(()=>render())}
+function setApiKey(value){value=(value||'').trim();if(value)localStorage.setItem('apiKey',value);else localStorage.removeItem('apiKey');detect().then(()=>render())}
+async function detect(){let note="";
+  try{const h=await api("/api/health");LIVE=true;HUN=!!h.hunyuan;ENGINE=h.engine||ENGINE;
+    AUTOPOST=h.autopost||AUTOPOST;
+    try{await loadDrafts()}catch(e){REAL_DRAFTS=false;note=" · drafts unavailable"}
+    try{await loadTelemetry()}catch(e){}
+  }catch(e){LIVE=false;REAL_DRAFTS=false}
+  $("#syncText").textContent=LIVE?((HUN?"Live · Hunyuan ✓":"Live · Hunyuan off")+(REAL_DRAFTS?" · real queue":note)):"Demo (connect backend)";
+  $("#syncChip").classList.toggle("offline",!LIVE)}
+
+// ---------- mock data ----------
+const CATS=["history","geography","science","default"];
+const GRAD={history:["#33597e","#16263a"],geography:["#3a8a5d","#16301f"],science:["#8a3a3a","#301414"],default:["#5a6377","#272b34"]};
+const VOICES=["af_heart","am_michael","bf_emma","bm_george","af_bella","am_adam","bf_isabella","bm_lewis"];
+const A_T=["Why the ocean is salty","The color of the sky","How memories form","Why we yawn","The speed of lightning","What makes echoes","Why ice floats","How rainbows bend light"];
+const B_T=["The Library of Timbuktu","The Siege of Constantinople","The Dancing Plague of 1518","How Venice was built","Pompeii's last day","The Great Emu War","The Library of Alexandria","The city beneath Cappadocia"];
+const SCRIPT="Here's something most people have no idea is even true — and the story goes far deeper than you'd expect.";
+let counter=300; const DB={A:[],B:[]};
+function mk(pl,i){const cat=pl==="A"?CATS[i%4]:CATS[i%3];const t=(pl==="A"?A_T:B_T);
+  return{id:`${pl}_${++counter}`,pl,cat,title:t[i%t.length]+(i>=t.length?` (${(i/t.length|0)+1})`:""),voice:VOICES[i%8],status:"pending",slot:null,script:SCRIPT}}
+for(let i=0;i<21;i++){DB.A.push(mk("A",i));DB.B.push(mk("B",i))}
+DB.A.slice(0,5).forEach((d,i)=>{d.status="approved";d.slot=`Day ${i+1} 09:00`});
+DB.B.slice(0,4).forEach((d,i)=>{d.status="approved";d.slot=`Day ${i+1} 12:00`});DB.A[6].status="rejected";
+const MOCK_DB={A:DB.A.map(d=>({...d})),B:DB.B.map(d=>({...d}))};
+const MOCK_AGENTS=[["trigger","idle"],["visual_qa","idle"],["audience_feedback","idle"],["auto_post","idle"],["variant_gen","idle"],["episodes","idle"]];
+
+function restoreMockDrafts(){DB.A=MOCK_DB.A.map(d=>({...d}));DB.B=MOCK_DB.B.map(d=>({...d}))}
+function formatSlot(v){if(!v)return null;const d=new Date(v);return Number.isNaN(d.getTime())?v:d.toLocaleString([], {weekday:"short",hour:"2-digit",minute:"2-digit"})}
+function normalizeDraft(r){const pl=(r.pipeline||r.pl||"A").toUpperCase()==="B"?"B":"A";
+  return {id:String(r.id),pl,cat:r.category||r.cat||"default",title:r.title||r.topic||`Draft ${r.id}`,
+    voice:r.voice||"rotating Kokoro",status:r.status||"pending",slot:formatSlot(r.scheduled_for||r.slot),
+    scheduled_for:r.scheduled_for||"",script:r.script||"",topic:r.topic||"",video_url:r.video_url||"",thumb_url:r.thumb_url||""}}
+async function loadDrafts(){const rows=await api("/api/drafts");if(!Array.isArray(rows)||!rows.length){REAL_DRAFTS=false;restoreMockDrafts();return}
+  DB.A=[];DB.B=[];rows.map(normalizeDraft).forEach(d=>DB[d.pl].push(d));REAL_DRAFTS=true}
+async function loadTelemetry(){if(!LIVE)return;
+  const [agents,events,jobs,post]=await Promise.all([
+    api("/api/agents").catch(()=>[]),
+    api("/api/events").catch(()=>[]),
+    api("/api/jobs").catch(()=>[]),
+    api("/api/autopost/status").catch(()=>AUTOPOST)
+  ]);
+  AGENTS=agents;EVENTS=events;JOBS=jobs;AUTOPOST=post}
+
+// ---------- helpers ----------
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const all=()=>[...DB.A,...DB.B];
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+const poster=d=>d.thumb_url?`center / cover url("${String(d.thumb_url).replace(/"/g,"%22")}")`:`linear-gradient(160deg,${GRAD[d.cat]?.[0]||GRAD.default[0]},${GRAD[d.cat]?.[1]||GRAD.default[1]})`;
+const cvar=c=>c==="history"?"hist":c==="geography"?"geo":c==="science"?"sci":"def";
+const moodFor=c=>({history:"mysterious",geography:"calm",science:"uplifting",default:"documentary"}[c]);
+function counts(pl){const a=DB[pl];return{approved:a.filter(d=>d.status==="approved").length,rejected:a.filter(d=>d.status==="rejected").length,pending:a.filter(d=>d.status==="pending").length}}
+function updateMeter(){const done=all().filter(d=>d.status==="approved").length;$("#meterLabel").textContent=`${done} / 42`;$("#meterFill").style.width=Math.round(done/42*100)+"%";$(".track").setAttribute("aria-valuenow",done)}
+function toast(m,undo){const w=$("#toasts"),e=document.createElement("div");e.className="toast";e.innerHTML=`<span>${m}</span>`;if(undo){const b=document.createElement("button");b.textContent="Undo";b.onclick=()=>{undo();e.remove();render()};e.appendChild(b)}w.appendChild(e);setTimeout(()=>e.remove(),6000)}
+function agentRail(){const list=(AGENTS.length?AGENTS:MOCK_AGENTS.map(([name,status])=>({name,status,circuit_open:false}))).slice(0,6);
+  return `<div class="agentrail" id="agentrail">${list.map(a=>`<div class="agentpulse ${a.circuit_open?'healing':esc(a.status)}"><strong><span class="dot"></span>${esc(a.name)}</strong><span class="muted">${a.circuit_open?'self-healing':esc(a.status||'idle')}</span></div>`).join("")}</div>`}
+function activityList(){const rows=EVENTS.slice(0,8);if(!rows.length)return `<p class="muted">No live events yet. Trigger a render or approve a draft to start the trace.</p>`;
+  return `<div class="activity-list">${rows.map(e=>`<div class="activity-item"><code>${esc(e.agent||'system')}</code><strong>${esc(e.type||'event')}</strong><span class="muted">${esc(e.note||'')}</span></div>`).join("")}</div>`}
+function autopostSummary(){const c=AUTOPOST.counts||{};return `Auto-post: ${esc(AUTOPOST.mode||'local_manifest')} · queued ${c.queued||0} · published ${c.published||0} · failed ${c.failed||0}`}
+
+// ---------- actions ----------
+let slotN={A:5,B:4};
+async function approve(d){const p={...d};if(LIVE&&REAL_DRAFTS){d.status="approved";d.slot="scheduling…";render();
+    try{const res=await api("/api/approve",{method:"POST",body:JSON.stringify({draft_id:d.id})});Object.assign(d,normalizeDraft(res.draft));toast(`✅ Approved — scheduled ${d.slot||"next slot"}`);await loadDrafts()}
+    catch(e){Object.assign(d,p);toast(`Approve failed: ${e.message}`)}render();return}
+  const day=(d.pl==="A"?slotN.A++:slotN.B++);d.status="approved";d.slot=`Day ${(day%7)+1} ${d.pl==="A"?"09:00":"12:00"}`;
+  toast(`✅ Approved — scheduled ${d.slot}`,()=>Object.assign(d,p));render()}
+async function reject(d){const p={...d};if(LIVE&&REAL_DRAFTS){d.status="rejected";render();
+    try{const res=await api("/api/reject",{method:"POST",body:JSON.stringify({draft_id:d.id,regenerate:true})});toast(res.job_id?"❌ Rejected — replacement render queued":"❌ Rejected");await loadDrafts()}
+    catch(e){Object.assign(d,p);toast(`Reject failed: ${e.message}`)}render();return}
+  d.status="rejected";toast("❌ Rejected — generating new proposition…");
+  setTimeout(()=>{const f=mk(d.pl,50+(Math.random()*8|0));f.title="↻ "+f.title;DB[d.pl].push(f);toast("🔄 New proposition: "+f.title.replace("↻ ",""));render()},1200);render()}
+
+// ---------- views ----------
+function viewDash(){const A=counts("A"),B=counts("B");
+  return `<h1>Weekly review · <span class="muted">${$("#week").value}</span></h1>
+  <div class="cards">${[["A","Synthetic-Visual",A],["B","Stock-Footage",B]].map(([pl,n,c])=>`
+   <div class="panel"><div class="pl-head"><div><strong>Pipeline ${pl}</strong><div class="muted">${n}</div></div><span class="tag pl">${pl}</span></div>
+    <div class="counts"><span style="color:var(--ok)">✅ ${c.approved}</span><span style="color:var(--danger)">❌ ${c.rejected}</span><span class="muted">⏳ ${c.pending}</span></div>
+    <button class="btn primary" data-goqueue="${pl}">Review ${c.pending} pending →</button></div>`).join("")}</div>
+  <h2>Live agent mesh</h2>${agentRail()}
+  <div class="panel" style="margin-top:var(--s5)"><strong>Cycle status</strong>
+   <p class="muted">Engine: <strong>${ENGINE}</strong> ${HUN?"✓ available":"· off (visuals self-heal to images/footage)"} · ${REAL_DRAFTS?"Showing live state.db drafts":"Demo queue active until drafts exist in state.db"} · ${autopostSummary()}</p></div>
+  <div class="panel" style="margin-top:var(--s5)"><div class="pl-head"><strong>Trace stream</strong><button class="btn" id="refreshTelemetry">Refresh</button></div>${activityList()}</div>`}
+
+let curPl="A";
+function viewQueue(){const list=DB[curPl];
+  return `<h1>Review queue</h1><div class="qbar"><div class="seg" role="group" aria-label="Pipeline">
+   <button data-pl="A" aria-pressed="${curPl==="A"}">Pipeline A · ${counts("A").pending}⏳</button>
+   <button data-pl="B" aria-pressed="${curPl==="B"}">Pipeline B · ${counts("B").pending}⏳</button></div>
+   <span class="muted">${list.length} drafts · ${REAL_DRAFTS?"live from state.db":"demo data"} · poster-first, tap ▶ to stream</span></div>
+   <div class="grid">${list.map(card).join("")}</div>`}
+function statusHtml(d){if(d.status==="approved")return `✅ Scheduled ${esc(d.slot||"next slot")}`;
+  if(d.status==="rejected")return "❌ Rejected — replaced";
+  if(d.status==="failed")return "⚠ Failed — retry from Render Studio";
+  if(d.status==="published")return "✅ Published";
+  return esc(d.status)}
+function card(d){const acted=d.status!=="pending";
+  return `<article class="draft" aria-label="${esc(d.title)}"><div class="poster" style="background:${poster(d)}">
+   ${d.video_url?`<button class="play" aria-label="Open video preview" onclick="window.open('${esc(d.video_url)}','_blank')">▶</button>`:`<span class="play" aria-hidden="true">▶</span>`}<span class="cap">${esc(d.title)}</span>
+   <span class="meta"><span class="tag ${esc(d.cat)}">${esc(d.cat)}</span><span class="tag pl">${esc(d.pl)}</span></span></div>
+   <div class="body"><h3>${esc(d.title)}</h3><div class="sub">🎙 ${esc(d.voice)} · 🎵 ${esc(moodFor(d.cat))}</div><p class="script">${esc(d.script)}</p>
+   ${acted?`<div class="state ${esc(d.status)}">${statusHtml(d)}</div>`:
+   `<div class="actions"><button class="btn ok" data-approve="${esc(d.id)}">✅ Approve</button><button class="btn danger" data-reject="${esc(d.id)}">❌ Reject</button></div>`}</div></article>`}
+
+// --- Render Studio + trigger ---
+let renderState="idle",pollTimer=null;
+function viewRender(){
+  return `<h1>Render Studio <span class="muted" style="font-size:14px">· ${ENGINE}</span></h1>
+  <div class="studio">
+   <div><div class="preview" id="preview"><div class="frame" id="frame"></div><span id="prevTxt">9:16 preview</span></div>
+     <div class="ring" id="ring" style="--p:0"><span id="ringTxt">0%</span></div></div>
+   <div>
+     <div class="field"><label for="rtopic">Prompt / topic</label><textarea id="rtopic" rows="2">A knight watching a storm roll over a castle</textarea></div>
+     <div class="cards" style="grid-template-columns:1fr 1fr">
+       <div class="field"><label for="rsrc">Visual source</label><select id="rsrc"><option value="auto">auto (Hunyuan→fallback)</option><option value="hunyuan">Hunyuan Video only</option><option value="images">images/footage</option></select></div>
+       <div class="field"><label>Actor lip-sync</label><div class="gpu"><span class="led" style="width:9px;height:9px;border-radius:99px;background:var(--ok);display:inline-block"></span> ${HUN?"enabled":"engine off → fallback"}</div></div>
+     </div>
+     <button class="trigger" id="trigger">▶  TRIGGER RENDER (Hunyuan Video)</button>
+     <p class="muted" id="rstate" aria-live="polite" style="text-align:center;margin:var(--s3) 0">idle</p>
+     <button class="btn danger" id="cancel" hidden style="width:100%">■ Cancel</button>
+     <h2>Job log</h2><div class="log" id="rlog"><div class="muted">No events yet.</div></div>
+   </div></div>`}
+
+function setTrigger(state,pct){renderState=state;const t=$("#trigger"),c=$("#cancel"),rs=$("#rstate");
+  if(!t)return; t.disabled=(state!=="idle"&&state!=="done"&&state!=="failed");
+  c.hidden=(state==="idle"||state==="done"||state==="failed");
+  rs.textContent={idle:"idle",submitting:"submitting…",queued:"queued…",rendering:`rendering ${pct||0}%`,"lip-syncing":"lip-syncing actor…",done:"✅ done",failed:"⚠ failed — see log",canceled:"canceled"}[state]||state;
+  if(pct!=null){$("#ring").style.setProperty("--p",pct);$("#ringTxt").textContent=pct+"%"}
+  t.setAttribute("aria-busy",t.disabled)}
+async function startRender(){
+  const topic=$("#rtopic").value,src=$("#rsrc").value;
+  setTrigger("submitting");
+  if(!LIVE){ // mock progression so the UI is demonstrable without the backend
+    let p=0;setTrigger("rendering",0);pollTimer=setInterval(()=>{p+=8;if(p<70)setTrigger("rendering",p);
+      else if(p<95){setTrigger("lip-syncing",p)}else{clearInterval(pollTimer);setTrigger("done",100);logLine("mock","render_done","(no backend — simulated)")}},220);return}
+  try{const {job_id}=await api("/api/render",{method:"POST",body:JSON.stringify({topic,visual_source:src})});
+    logLine("ui","render_request",job_id);poll(job_id)}catch(e){setTrigger("failed");logLine("ui","error",e.message)}}
+async function poll(job){clearInterval(pollTimer);pollTimer=setInterval(async()=>{
+  try{const {job:j,events}=await api(`/api/render/${job}/events`);renderLog(events);
+    const types=events.map(e=>e.type);
+    if(types.includes("lipsync_start"))setTrigger("lip-syncing",90);
+    else if(types.includes("render_start"))setTrigger("rendering",60);
+    else setTrigger("queued");
+    if(j&&j.status==="done"){clearInterval(pollTimer);setTrigger("done",100)}
+    if(j&&(j.status==="failed"||j.status==="quarantined")){clearInterval(pollTimer);setTrigger("failed")}
+  }catch(e){}},1000)}
+function logLine(agent,type,note){const l=$("#rlog");if(!l)return;if(l.firstChild&&l.firstChild.classList?.contains("muted"))l.innerHTML="";
+  const d=document.createElement("div");d.innerHTML=`<strong>${agent}</strong> ${type} <span class="muted">${note||""}</span>`;l.prepend(d)}
+function renderLog(events){const l=$("#rlog");if(!l)return;l.innerHTML=events.slice(0,40).map(e=>`<div><strong>${e.agent}</strong> ${e.type} <span class="muted">${e.note||""}</span></div>`).join("")}
+
+// --- Agents board ---
+async function viewAgents(){let list=MOCK_AGENTS.map(([name,status])=>({name,status,circuit_open:false}));
+  if(LIVE){try{list=await api("/api/agents")}catch(e){}}
+  setTimeout(()=>{$("#view").innerHTML=renderAgents(list);bindView()},0);
+  return `<h1>Agents</h1><p class="muted">Loading…</p>`}
+function renderAgents(list){AGENTS=list;return `<h1>Agents <span class="muted" style="font-size:14px">· ${LIVE?"live":"mock"}</span></h1>${agentRail()}
+  <div class="cards">${list.map(a=>`<div class="agentcard"><div class="pl-head"><strong>${a.name}</strong>
+   <span class="pill ${a.circuit_open?'healing':a.status}">${a.circuit_open?'healing':a.status}</span></div>
+   <p class="muted" style="margin:var(--s3) 0 0">${descAgent(a.name)}</p></div>`).join("")}</div>
+  <div class="panel" style="margin-top:var(--s5)"><strong>Self-healing</strong>
+   <p class="muted">Each agent runs behind a circuit breaker. On repeated failure it trips to <em>healing</em> and degrades to a fallback (e.g. Hunyuan Video → images/footage) instead of crashing.</p></div>
+  <div class="panel" style="margin-top:var(--s5)"><strong>Recent events</strong>${activityList()}</div>`}
+function descAgent(n){return {trigger:"Creates render jobs from the UI button, cron, or the reject loop.",
+  visual_qa:"Pass/fail a finished reel (duration vs voiceover); triggers self-heal.",
+  audience_feedback:"Turns engagement into reward → updates self-improvement priors.",
+  auto_post:"Publishes/schedules a draft after user approval.",
+  variant_gen:"Generates viral variants (hook/caption/pacing/thumbnail).",
+  episodes:"Series manager — sequential episodes + reproduce (epsideos mode)."}[n]||""}
+
+// --- Variant Lab ---
+function viewVariants(){const base=DB.A[0]||DB.B[0]||mk("A",0);const vs=["fast hook","slow burn","question hook","stat hook"].map((h,i)=>({h,score:(0.9-i*0.12).toFixed(2),cat:base.cat}));
+  return `<h1>Variant Lab</h1><p class="muted">Viral variants of <strong>${base.title}</strong> — promote the best to the queue.</p>
+  <div class="grid">${vs.map(v=>`<article class="draft"><div class="poster" style="background:${poster(base)}">
+   <span class="cap">${v.h}</span><span class="meta"><span class="tag ${v.cat}">score ${v.score}</span></span></div>
+   <div class="body"><h3>${v.h}</h3><div class="sub">predicted engagement ${v.score}</div>
+   <div class="actions"><button class="btn primary" onclick="toast('Promoted variant to queue')">Promote</button><button class="btn" onclick="toast('Re-rendering variant…')">↻ Re-render</button></div></div></article>`).join("")}</div>`}
+
+// --- Episodes ---
+function viewEpisodes(){const eps=[1,2,3,4].map(n=>({n,title:`The Lost Cities · E0${n}`,status:n<3?"published":"draft"}));
+  return `<h1>Episodes <span class="muted" style="font-size:14px">· epsideos mode</span></h1>
+  <div class="qbar"><input class="field" id="series" value="The Lost Cities" style="padding:10px 12px;border:1px solid var(--line);border-radius:var(--r1);background:var(--surface2);color:var(--text)">
+   <button class="btn primary" onclick="toast('Generating next episode…');if(LIVE)api('/api/episode',{method:'POST',body:JSON.stringify({series:document.getElementById('series').value,episode:5})}).catch(()=>{})">+ New episode</button></div>
+  <div class="grid">${eps.map(e=>`<article class="draft"><div class="poster" style="background:${poster({cat:'history'})}">
+   <span class="cap">${e.title}</span><span class="meta"><span class="tag history">E0${e.n}</span><span class="tag pl">${e.status}</span></span></div>
+   <div class="body"><h3>Episode ${e.n}</h3><div class="actions"><button class="btn" onclick="toast('Reproducing episode…')">↻ Reproduce</button><button class="btn primary" onclick="toast('Opened in Render Studio')">Open</button></div></div></article>`).join("")}</div>`}
+
+function dayIndex(d){if(d.scheduled_for){const dt=new Date(d.scheduled_for);if(!Number.isNaN(dt.getTime()))return (dt.getDay()+6)%7}
+  const m=String(d.slot||"").match(/Day (\d+)/);return m?(Number(m[1])-1):0}
+function viewSched(){const days=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],appr=all().filter(d=>d.status==="approved");
+  return `<h1>Schedule · ${$("#week").value}</h1><div class="sched">${days.map((dn,i)=>{const s=appr.filter(d=>dayIndex(d)===i);
+   return `<div class="day"><h4>${dn}</h4>${s.map(d=>`<div class="slot" style="background:var(--${cvar(d.cat)})">${esc(d.slot||"slot")} · ${esc(d.pl)} · ${esc(d.title.slice(0,14))}…</div>`).join("")||'<span class="muted" style="font-size:12px">⏳ open</span>'}</div>`}).join("")}</div>`}
+function viewSettings(){return `<h1>Settings</h1><div class="cards">
+   <div class="panel"><strong>Engine</strong><p class="muted">${ENGINE} via ComfyUI backend ${HUN?"(reachable)":"(not reachable — fallback active)"}. Lip-sync model: [FILL].</p></div>
+   <div class="panel"><strong>Voices & rotation</strong><p class="muted">Round-robin pool (8): ${VOICES.join(", ")}</p></div>
+   <div class="panel"><strong>Pipeline backend</strong>
+     <p class="muted">${LIVE?"✅ Connected to "+API+(REAL_DRAFTS?" · live drafts loaded":" · no drafts yet, showing demo queue"):"⚠ Demo mode — not connected. Start the pipeline (<code>py server.py</code>) then connect. From the public https site you must use an https backend URL (e.g. a free cloudflared tunnel) to avoid mixed-content blocking."}</p>
+     <div class="field" style="margin-top:var(--s3)"><label for="apiUrl">Backend URL</label><input id="apiUrl" value="${API}" placeholder="http://127.0.0.1:8787  or  https://your-tunnel.trycloudflare.com"></div>
+     <div class="field"><label for="apiKey">API key (optional)</label><input id="apiKey" value="${esc(localStorage.getItem('apiKey')||'')}" placeholder="Only needed if REEL_API_KEY is set"></div>
+     <button class="btn primary" onclick="setApi(document.getElementById('apiUrl').value);setApiKey(document.getElementById('apiKey').value)">Connect</button></div>
+   <div class="panel"><strong>Auto-poster</strong><p class="muted">${autopostSummary()}</p><button class="btn" id="queueAutopost">Queue approved</button> <button class="btn primary" id="runAutopost">Run now</button></div>
+   <div class="panel"><strong>Licenses</strong><p class="muted">Every asset's source + license logged in state.db. All components open-source.</p></div></div>`}
+
+const VIEWS={dash:viewDash,queue:viewQueue,render:viewRender,agents:viewAgents,variants:viewVariants,episodes:viewEpisodes,sched:viewSched,settings:viewSettings};
+let current="dash";
+async function render(){updateMeter();const out=VIEWS[current]();$("#view").innerHTML=(out instanceof Promise)?await out:out;
+  $$(".nav-link,.tabs a").forEach(a=>a.dataset.view===current?a.setAttribute("aria-current","page"):a.removeAttribute("aria-current"));bindView()}
+function bindView(){
+  $$("[data-approve]").forEach(b=>b.onclick=()=>approve(all().find(d=>d.id===b.dataset.approve)));
+  $$("[data-reject]").forEach(b=>b.onclick=()=>reject(all().find(d=>d.id===b.dataset.reject)));
+  $$("[data-goqueue]").forEach(b=>b.onclick=()=>{curPl=b.dataset.goqueue;go("queue")});
+  $$("[data-pl]").forEach(b=>b.onclick=()=>{curPl=b.dataset.pl;render()});
+  const rt=$("#refreshTelemetry");if(rt)rt.onclick=()=>loadTelemetry().then(render);
+  const qa=$("#queueAutopost");if(qa)qa.onclick=()=>api("/api/autopost/queue",{method:"POST",body:JSON.stringify({limit:20})}).then(()=>detect().then(render)).catch(e=>toast(`Auto-post queue failed: ${e.message}`));
+  const ra=$("#runAutopost");if(ra)ra.onclick=()=>api("/api/autopost/run",{method:"POST",body:JSON.stringify({limit:5})}).then(()=>detect().then(render)).catch(e=>toast(`Auto-post run failed: ${e.message}`));
+  const t=$("#trigger");if(t){t.onclick=startRender;setTrigger("idle")}
+  const c=$("#cancel");if(c)c.onclick=()=>{clearInterval(pollTimer);setTrigger("idle")}}
+function go(v){current=v;location.hash=v;render();$("#main").focus()}
+$$(".nav-link,.tabs a").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();go(a.dataset.view)}));
+$("#week").onchange=render;
+$("#syncChip").onclick=()=>detect();
+window.addEventListener("hashchange",()=>{const v=location.hash.slice(1);if(VIEWS[v])go(v)});
+detect().finally(()=>go(location.hash.slice(1)||"dash"));
+setInterval(()=>{if(LIVE&&["dash","agents","settings"].includes(current)){loadTelemetry().then(render).catch(()=>{})}},3500);
+</script>
+</body>
+</html>

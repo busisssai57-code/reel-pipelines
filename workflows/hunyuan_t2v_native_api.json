@@ -1,0 +1,80 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "{{HUNYUAN_MODEL}}",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "{{HUNYUAN_CLIP}}",
+      "clip_name2": "{{HUNYUAN_LLM}}",
+      "type": "hunyuan_video"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "{{HUNYUAN_VAE}}"
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": "{{PROMPT}}"
+    }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": "{{NEGATIVE_PROMPT}}"
+    }
+  },
+  "6": {
+    "class_type": "EmptyHunyuanLatentVideo",
+    "inputs": {
+      "width": {{WIDTH}},
+      "height": {{HEIGHT}},
+      "length": {{FRAMES}},
+      "batch_size": 1
+    }
+  },
+  "7": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["1", 0],
+      "positive": ["4", 0],
+      "negative": ["5", 0],
+      "latent_image": ["6", 0],
+      "seed": {{SEED}},
+      "steps": {{STEPS}},
+      "cfg": 6,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["7", 0],
+      "vae": ["3", 0]
+    }
+  },
+  "9": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": ["8", 0],
+      "frame_rate": {{FPS}},
+      "loop_count": 0,
+      "filename_prefix": "reel_hunyuan",
+      "format": "video/h264-mp4",
+      "pingpong": false,
+      "save_output": true
+    }
+  }
+}

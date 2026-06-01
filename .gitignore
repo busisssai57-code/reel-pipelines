@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+output/
+drafts/
+logs/
+pipelines/common/assets/
+state.db
+*.wav
+*.mp4
+.venv/
+venv/
+tools/
