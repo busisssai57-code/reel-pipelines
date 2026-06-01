@@ -1,0 +1,92 @@
+/* Shared, global utility classes (Svelte component <style> is scoped, so these
+   reusable primitives live here and are imported once in +layout.svelte). */
+
+.muted { color: var(--label-2); }
+.tertiary { color: var(--label-3); }
+.row { display: flex; align-items: center; gap: var(--sp-3); }
+.row.between { justify-content: space-between; }
+.col { display: flex; flex-direction: column; gap: var(--sp-3); }
+.wrap { flex-wrap: wrap; }
+.spacer { flex: 1; }
+
+.panel {
+  background: var(--material);
+  -webkit-backdrop-filter: var(--material-blur);
+  backdrop-filter: var(--material-blur);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  padding: var(--sp-5);
+  box-shadow: var(--e-1);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .panel { background: var(--surface); }
+}
+
+.grid { display: grid; gap: var(--sp-4); }
+.grid.cards { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.grid.tiles { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.grid.drafts { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+
+.btn {
+  min-height: var(--touch-min);
+  padding: 0 var(--sp-5);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--separator);
+  background: var(--fill-2);
+  color: var(--label);
+  font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  transition: transform var(--d-micro) var(--e-standard),
+              background var(--d-fast) var(--e-standard),
+              border-color var(--d-fast) var(--e-standard);
+}
+.btn:hover { background: var(--fill); }
+.btn:active { transform: scale(.98); }
+.btn[disabled] { opacity: .5; cursor: default; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.ok { background: var(--success); border-color: var(--success); color: #fff; }
+.btn.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+.btn.danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.btn.sm { min-height: 36px; padding: 0 var(--sp-4); font-size: var(--t-caption); }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: var(--r-pill);
+  font-size: var(--t-caption); font-weight: 700;
+  border: 1px solid var(--separator); background: var(--fill-2); color: var(--label-2);
+}
+.badge.ok { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); border-color: transparent; }
+.badge.warn { background: color-mix(in srgb, var(--warning) 20%, transparent); color: var(--warning); border-color: transparent; }
+.badge.err { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); border-color: transparent; }
+.badge.accent { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border-color: transparent; }
+
+.tag {
+  font-size: 11px; font-weight: 800; letter-spacing: .02em;
+  padding: 3px 8px; border-radius: var(--r-pill); color: #fff;
+}
+.tag.history { background: var(--c-history); }
+.tag.geography { background: var(--c-geography); }
+.tag.science { background: var(--c-science); }
+.tag.default { background: var(--c-default); }
+
+.input {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--separator);
+  color: var(--label);
+  border-radius: var(--r-sm);
+  padding: 12px 14px;
+  font: inherit;
+  transition: border-color var(--d-fast) var(--e-standard), box-shadow var(--d-fast) var(--e-standard);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.page-title { font-size: var(--t-title1); font-weight: 700; }
+.section-title { font-size: var(--t-title3); font-weight: 650; margin: var(--sp-6) 0 var(--sp-3); }
+.section-title:first-child { margin-top: 0; }
+.empty { color: var(--label-2); padding: var(--sp-4); }

@@ -1,0 +1,13 @@
+{
+  "name": "Reel Studio",
+  "short_name": "Reel Studio",
+  "description": "Autonomous vertical-video production — live agents, renders, approvals.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

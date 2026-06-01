@@ -1,0 +1,3 @@
+# Cloudflare Pages SPA fallback: client-side routing for unknown paths.
+/api/*    http://127.0.0.1:8787/api/:splat    200
+/*        /index.html                          200
