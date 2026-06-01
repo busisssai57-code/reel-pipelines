@@ -261,6 +261,16 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(supervisor.priors.weights())
         if path == "/api/autopost/status":
             return self._json(autopost.status())
+        # AI Team endpoints
+        if path == "/api/trends":
+            trends = db.top_trends(n=20, unused_only=False)
+            return self._json([dict(t) for t in trends])
+        if path == "/api/engagement":
+            engagement = db.recent_engagement(n=50)
+            return self._json([dict(e) for e in engagement])
+        if path == "/api/patches":
+            patches = db.get_patches(n=50, applied_only=False)
+            return self._json([dict(p) for p in patches])
         return self._json({"error": "unknown endpoint"}, 404)
 
     # ----------------------------------------------------------- POST
@@ -336,6 +346,23 @@ class Handler(BaseHTTPRequestHandler):
                 # Save settings from dashboard
                 # In a real app, these would be validated and persisted
                 return self._json({"ok": True, "message": "Settings saved"})
+            # AI Team endpoints
+            if path == "/api/trend_cycle/run":
+                bus.emit(None, "ui", "trend_cycle_start")
+                return self._json({"ok": True, "message": "Trend cycle triggered"})
+            if path.startswith("/api/distribute/"):
+                draft_id = int(path.split("/")[3])
+                bus.emit(None, "ui", "publish_request", data={"draft_id": draft_id})
+                return self._json({"ok": True, "draft_id": draft_id})
+            if path.startswith("/api/patches/") and path.endswith("/apply"):
+                patch_id = int(path.split("/")[3])
+                patch = db.get_patches(n=1, applied_only=False)
+                if patch and patch[0]["id"] == patch_id:
+                    from pipelines.common import qwen_coder
+                    if qwen_coder.apply_patch(patch[0]["patch_diff"], patch[0]["file_path"]):
+                        db.apply_patch(patch_id)
+                        return self._json({"ok": True, "applied": True})
+                return self._json({"error": "patch not found or apply failed"}, 404)
             return self._json({"error": "unknown endpoint"}, 404)
         except Exception as e:
             log.exception("POST %s", path)

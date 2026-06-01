@@ -778,6 +778,23 @@
           <span class="ico">⚡</span>
           <span>Settings</span>
         </button>
+        <hr style="border:none; border-top:1px solid var(--line); margin:16px 0;">
+        <button class="nav-link" data-view="team">
+          <span class="ico">🤖</span>
+          <span>AI Team</span>
+        </button>
+        <button class="nav-link" data-view="trends">
+          <span class="ico">📈</span>
+          <span>Trends</span>
+        </button>
+        <button class="nav-link" data-view="engagement">
+          <span class="ico">💬</span>
+          <span>Engagement</span>
+        </button>
+        <button class="nav-link" data-view="patches">
+          <span class="ico">🔧</span>
+          <span>Patches</span>
+        </button>
       </nav>
       <div class="system-status">
         <div class="status-item">
@@ -1078,6 +1095,56 @@
           </div>
         </div>
       </div>
+
+      <!-- AI Team View -->
+      <div class="view" id="viewTeam">
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+            <h2>AI Team Status</h2>
+            <button class="btn-primary" onclick="fetch('/api/trend_cycle/run', {method:'POST'}).then(r=>r.json()).then(d=>toast('Trend cycle started', 'success'))">▶ Run Trend Cycle</button>
+          </div>
+          <div class="grid-2" id="aiTeamGrid" style="gap:16px;"></div>
+        </div>
+      </div>
+
+      <!-- Trends View -->
+      <div class="view" id="viewTrends">
+        <div>
+          <h2 style="margin-bottom:24px;">Recent Trends</h2>
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+              <thead>
+                <tr style="border-bottom:1px solid var(--line);">
+                  <th style="text-align:left; padding:12px; color:var(--muted);">Source</th>
+                  <th style="text-align:left; padding:12px; color:var(--muted);">Topic</th>
+                  <th style="text-align:center; padding:12px; color:var(--muted);">Raw Score</th>
+                  <th style="text-align:center; padding:12px; color:var(--muted);">Prior Score</th>
+                  <th style="text-align:center; padding:12px; color:var(--muted);">Status</th>
+                  <th style="text-align:center; padding:12px; color:var(--muted);">Action</th>
+                </tr>
+              </thead>
+              <tbody id="trendsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Engagement View -->
+      <div class="view" id="viewEngagement">
+        <div>
+          <h2 style="margin-bottom:24px;">Engagement Metrics</h2>
+          <div class="grid-2" id="engagementGrid" style="gap:16px;"></div>
+        </div>
+      </div>
+
+      <!-- Patches View -->
+      <div class="view" id="viewPatches">
+        <div>
+          <h2 style="margin-bottom:24px;">Code Patches (Qwen Coder)</h2>
+          <div id="patchesContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
+        </div>
+      </div>
+
     </main>
   </div>
 
@@ -1089,7 +1156,10 @@
       drafts: { A: [], B: [] },
       events: [],
       agents: [],
-      jobs: {}
+      jobs: {},
+      trends: [],
+      engagement: [],
+      patches: []
     };
 
     // Detect backend
@@ -1128,21 +1198,32 @@
     async function loadTelemetry() {
       if (!state.live) return;
       try {
-        const [jobs, events] = await Promise.all([
+        const [jobs, events, trends, engagement, patches] = await Promise.all([
           fetch('/api/agents').then(r => r.json()).catch(() => []),
-          fetch('/api/events').then(r => r.json()).catch(() => [])
+          fetch('/api/events').then(r => r.json()).catch(() => []),
+          fetch('/api/trends').then(r => r.json()).catch(() => []),
+          fetch('/api/engagement').then(r => r.json()).catch(() => []),
+          fetch('/api/patches').then(r => r.json()).catch(() => [])
         ]);
         state.agents = jobs || [];
         state.events = events || [];
+        state.trends = trends || [];
+        state.engagement = engagement || [];
+        state.patches = patches || [];
         updateViews();
       } catch (e) {}
     }
 
     // Update all views
     function updateViews() {
-      if (document.querySelector('.view.active').id === 'viewDash') updateDashboard();
-      else if (document.querySelector('.view.active').id === 'viewQueue') updateQueue();
-      else if (document.querySelector('.view.active').id === 'viewAgents') updateAgents();
+      const activeId = document.querySelector('.view.active')?.id;
+      if (activeId === 'viewDash') updateDashboard();
+      else if (activeId === 'viewQueue') updateQueue();
+      else if (activeId === 'viewAgents') updateAgents();
+      else if (activeId === 'viewTeam') updateTeam();
+      else if (activeId === 'viewTrends') updateTrends();
+      else if (activeId === 'viewEngagement') updateEngagement();
+      else if (activeId === 'viewPatches') updatePatches();
     }
 
     // Update dashboard
@@ -1253,6 +1334,92 @@
       `).join('') || '<div style="grid-column:1/-1; text-align:center; color:var(--muted); padding:40px;">No agents</div>';
     }
 
+    // Update AI Team view
+    function updateTeam() {
+      const grid = document.getElementById('aiTeamGrid');
+      const aiAgents = state.agents.filter(a => ['trend_research', 'production_orchestrator', 'auto_approve', 'distribution', 'engagement_feedback', 'qwen_coder'].includes(a.name));
+      grid.innerHTML = aiAgents.map(a => `
+        <div class="glass-card" style="padding:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="font-weight:600; color:var(--text);">${a.name}</div>
+            <div style="width:12px; height:12px; border-radius:50%; background:${a.circuit_open ? 'var(--danger)' : a.status === 'running' ? 'var(--warn)' : 'var(--ok)'}; box-shadow:0 0 8px ${a.circuit_open ? 'var(--danger)' : a.status === 'running' ? 'var(--warn)' : 'var(--ok)'}33;"></div>
+          </div>
+          <div style="color:var(--muted); font-size:12px; margin-bottom:8px;">Status: <strong>${a.status}</strong></div>
+          <div style="color:var(--muted); font-size:12px;">Circuit: <strong>${a.circuit_open ? '🔴 OPEN' : '🟢 CLOSED'}</strong></div>
+          ${a.last_run ? `<div style="color:var(--muted); font-size:11px; margin-top:8px;">Last: ${new Date(a.last_run * 1000).toLocaleTimeString()}</div>` : ''}
+        </div>
+      `).join('') || '<div style="grid-column:1/-1; text-align:center; color:var(--muted); padding:40px;">No AI team agents</div>';
+    }
+
+    // Update Trends view
+    function updateTrends() {
+      const tbody = document.getElementById('trendsTable');
+      tbody.innerHTML = state.trends.map(t => `
+        <tr style="border-bottom:1px solid var(--line);">
+          <td style="padding:12px; color:var(--accent);">${t.source || 'unknown'}</td>
+          <td style="padding:12px; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${t.topic || ''}</td>
+          <td style="padding:12px; text-align:center;">${(t.raw_score || 0).toFixed(1)}</td>
+          <td style="padding:12px; text-align:center;">${(t.prior_score || 0).toFixed(2)}</td>
+          <td style="padding:12px; text-align:center;"><span class="badge ${t.used ? 'pending' : 'approved'}" style="font-size:11px;">${t.used ? 'Used' : 'Ready'}</span></td>
+          <td style="padding:12px; text-align:center;"><button class="btn-secondary" style="font-size:11px; padding:4px 8px;" onclick="fetch('/api/render', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({topic:'${t.topic}'})}).then(r=>r.json()).then(d=>toast('Render started', 'success'))">Produce</button></td>
+        </tr>
+      `).join('') || '<tr><td colspan="6" style="padding:40px; text-align:center; color:var(--muted);">No trends yet</td></tr>';
+    }
+
+    // Update Engagement view
+    function updateEngagement() {
+      const grid = document.getElementById('engagementGrid');
+      if (!state.engagement || state.engagement.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:var(--muted); padding:40px;">No engagement data yet</div>';
+        return;
+      }
+      const byDraft = {};
+      state.engagement.forEach(e => {
+        if (!byDraft[e.draft_id]) byDraft[e.draft_id] = {};
+        byDraft[e.draft_id][e.platform] = e;
+      });
+      grid.innerHTML = Object.entries(byDraft).map(([draftId, platforms]) => `
+        <div class="glass-card" style="padding:16px;">
+          <div style="margin-bottom:12px; color:var(--text); font-weight:600;">Draft ${draftId}</div>
+          ${Object.entries(platforms).map(([platform, m]) => `
+            <div style="margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--line);">
+              <div style="color:var(--accent); font-size:12px; font-weight:600; margin-bottom:4px;">📱 ${platform.toUpperCase()}</div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px; color:var(--muted);">
+                <div>👁 ${m.views || 0} views</div>
+                <div>❤️ ${m.likes || 0} likes</div>
+                <div>💬 ${m.comments || 0} comments</div>
+                <div>⭐ ${(m.reward || 0).toFixed(2)} reward</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+    }
+
+    // Update Patches view
+    function updatePatches() {
+      const container = document.getElementById('patchesContainer');
+      if (!state.patches || state.patches.length === 0) {
+        container.innerHTML = '<div style="text-align:center; color:var(--muted); padding:40px;">No patches generated yet</div>';
+        return;
+      }
+      container.innerHTML = state.patches.map(p => `
+        <div class="glass-card" style="padding:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:12px;">
+            <div>
+              <div style="color:var(--text); font-weight:600; margin-bottom:4px;">🔧 ${p.file_path}</div>
+              <div style="color:var(--muted); font-size:12px; margin-bottom:8px;">${p.error_summary || ''}</div>
+            </div>
+            <span class="badge ${p.applied ? 'approved' : 'pending'}" style="font-size:11px;">${p.applied ? '✅ Applied' : '⏳ Pending'}</span>
+          </div>
+          <div style="background:var(--surface2); border-radius:var(--r1); padding:12px; overflow-x:auto; font-size:11px; font-family:monospace; color:var(--muted); margin-bottom:12px; max-height:200px; overflow-y:auto;">
+            ${p.patch_diff ? p.patch_diff.split('\n').slice(0, 15).map(line => `<div style="color:${line.startsWith('+') ? 'var(--ok)' : line.startsWith('-') ? 'var(--danger)' : 'var(--muted)'};">${line}</div>`).join('') + (p.patch_diff.split('\n').length > 15 ? '<div style="color:var(--muted);">... (truncated)</div>' : '') : 'No diff'}
+          </div>
+          ${!p.applied ? `<button class="btn-primary" style="width:100%; font-size:12px; padding:8px;" onclick="fetch('/api/patches/${p.id}/apply', {method:'POST'}).then(r=>r.json()).then(d=>{toast('Patch applied', 'success'); location.reload()});">Apply Patch</button>` : '<div style="color:var(--ok); font-size:12px; text-align:center;">✓ Patch applied successfully</div>'}
+        </div>
+      `).join('');
+    }
+
     // Navigation
     document.querySelectorAll('.nav-link').forEach(link => {
       link.addEventListener('click', () => {
@@ -1263,7 +1430,7 @@
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         document.getElementById(`view${view[0].toUpperCase() + view.slice(1)}`).classList.add('active');
 
-        const titles = { dash: 'Dashboard', queue: 'Review Queue', render: 'Render Studio', agents: 'Agents', variants: 'Variant Lab', episodes: 'Episodes', sched: 'Schedule', settings: 'Settings' };
+        const titles = { dash: 'Dashboard', queue: 'Review Queue', render: 'Render Studio', agents: 'Agents', variants: 'Variant Lab', episodes: 'Episodes', sched: 'Schedule', settings: 'Settings', team: 'AI Team', trends: 'Trends', engagement: 'Engagement', patches: 'Code Patches' };
         document.getElementById('pageTitle').textContent = titles[view] || 'Studio';
 
         updateViews();

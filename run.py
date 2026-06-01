@@ -9,6 +9,10 @@ Examples:
   py run.py bot                                # run Discord approval bot + scheduler
   py run.py bot --post-now                     # post the weekly review immediately
   py run.py check                              # environment / dependency check
+  py run.py ai-team                            # run full autonomous AI team + dashboard
+  py run.py trend                              # run one manual trend cycle
+  py run.py distribute <draft_id>              # manually distribute draft to YouTube/TikTok
+  py run.py oauth youtube|tiktok               # set up OAuth tokens
 """
 from __future__ import annotations
 import argparse, logging, sys
@@ -34,6 +38,14 @@ def main():
     pval.add_argument("video", help="rendered MP4 to inspect")
     pval.add_argument("--workflow", help="optional workflow card path")
     sub.add_parser("check")
+    # AI Team commands
+    sub.add_parser("ai-team")
+    ptrend = sub.add_parser("trend")
+    ptrend.add_argument("--run", action="store_true", help="run full cycle once")
+    pdist = sub.add_parser("distribute")
+    pdist.add_argument("draft_id", type=int, help="draft ID to distribute")
+    poauth = sub.add_parser("oauth")
+    poauth.add_argument("platform", choices=["youtube", "tiktok"], help="platform to set up")
 
     args = ap.parse_args()
 
@@ -73,6 +85,50 @@ def main():
     elif args.cmd == "check":
         import check_env
         check_env.main()
+    elif args.cmd == "ai-team":
+        import threading, webbrowser, shutil
+        url = "http://127.0.0.1:8787"
+        threading.Timer(1.5, lambda: webbrowser.open(url)).start()
+        print("Starting autonomous AI team + dashboard...")
+        import pipelines
+        import server
+        server.main(8787)
+    elif args.cmd == "trend":
+        from pipelines.common import trend_research, db
+        db.init()
+        print("Fetching trends...")
+        trends = trend_research.fetch_all_trends()
+        trends = trend_research.deduplicate_topics(trends)
+        scored = trend_research.score_and_rank(trends)
+        print(f"\nTop {min(10, len(scored))} trends:")
+        for i, t in enumerate(scored[:10], 1):
+            print(f"  {i}. {t['topic'][:60]} (raw:{t['raw_score']:.1f}, prior:{t['prior_score']:.2f}, final:{t['final_score']:.2f})")
+        if args.run:
+            from pipelines.common import bus, qwen_client
+            bus.init()
+            topics = qwen_client.seed_topics("A", n=min(3, len(scored)))
+            print(f"\nGenerating {len(topics)} videos...")
+            for topic in topics:
+                print(f"  Queueing: {topic}")
+                bus.emit(None, "cli", "topic_queued", data={"topic": topic})
+    elif args.cmd == "distribute":
+        from pipelines.common import db, bus
+        db.init()
+        bus.init()
+        draft = db.get_draft(args.draft_id)
+        if not draft:
+            print(f"Draft {args.draft_id} not found")
+            sys.exit(1)
+        print(f"Distributing draft {args.draft_id}: {draft['topic']}...")
+        bus.emit(None, "cli", "publish_request", data={"draft_id": args.draft_id})
+        print("Distribution queued. Check dashboard for progress.")
+    elif args.cmd == "oauth":
+        import subprocess
+        script = Path(__file__).parent / "scripts" / "setup-oauth.ps1"
+        subprocess.run([
+            "powershell", "-ExecutionPolicy", "Bypass", "-File", str(script),
+            "-Platform", args.platform
+        ])
 
 
 if __name__ == "__main__":

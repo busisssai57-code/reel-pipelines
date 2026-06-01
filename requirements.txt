@@ -21,6 +21,11 @@ discord.py>=2.4.0
 APScheduler>=3.10.4
 python-dotenv>=1.0.1
 
+# --- YouTube & TikTok API integration (AI Team autonomous distribution) ---
+google-api-python-client>=2.100.0
+google-auth-oauthlib>=1.1.0
+google-auth-httplib2>=0.1.1
+
 # --- Optional: local image generation for Pipeline A ---
 # diffusers>=0.30.0
 # torch>=2.3.0
