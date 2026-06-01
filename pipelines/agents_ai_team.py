@@ -5,9 +5,9 @@ from concurrent.futures import ThreadPoolExecutor
 import logging, time
 from .common import (
     bus, db, config, supervisor, trend_research, qwen_client, engagement,
-    youtube_api, tiktok_api, qwen_coder, pipeline_a, pipeline_b,
+    youtube_api, tiktok_api, qwen_coder,
 )
-from . import agents
+from . import agents, pipeline_a, pipeline_b
 
 log = logging.getLogger("ai_team")
 
