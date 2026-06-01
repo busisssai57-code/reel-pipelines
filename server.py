@@ -10,7 +10,7 @@ Then open dashboard/index.html (it auto-detects the API; falls back to mock).
 """
 from __future__ import annotations
 import datetime as dt
-import json, threading, logging, mimetypes, shutil
+import json, threading, logging, mimetypes, shutil, queue
 from pathlib import Path
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse, unquote
@@ -134,6 +134,53 @@ class Handler(BaseHTTPRequestHandler):
     def _json(self, obj, code=200):
         self._send(code, json.dumps(obj).encode())
 
+    # ----------------------------------------------------------- SSE (live stream)
+    def _sse_send(self, event: str, data) -> None:
+        body = f"event: {event}\ndata: {json.dumps(data)}\n\n".encode("utf-8")
+        self.wfile.write(body)
+        self.wfile.flush()
+
+    def _sse(self):
+        """Server-Sent Events over the bus: pushes a snapshot, then every emitted
+        event plus a fresh agent-status frame. Replaces the dashboard's polling;
+        the client falls back to polling if this endpoint is unreachable."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self.send_header("X-Accel-Buffering", "no")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+
+        q: "queue.Queue[dict]" = queue.Queue(maxsize=2000)
+
+        def _push(ev):
+            try:
+                q.put_nowait(ev)
+            except queue.Full:
+                pass
+
+        bus.subscribe("*", _push)
+        try:
+            try:
+                qwen = {"online": qwen_client.is_online(), "model": config.QWEN_MODEL}
+            except Exception:
+                qwen = {"online": False}
+            self._sse_send("snapshot", {"agents": RUNNER.health(), "qwen": qwen})
+            while True:
+                try:
+                    ev = q.get(timeout=15)
+                except queue.Empty:
+                    self.wfile.write(b": ping\n\n")
+                    self.wfile.flush()
+                    continue
+                self._sse_send("event", ev)
+                self._sse_send("agent_status", RUNNER.health())
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass  # client disconnected
+        finally:
+            bus.unsubscribe("*", _push)
+
     def do_OPTIONS(self):
         self._send(204, b"")
 
@@ -171,6 +218,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path in ("/", "/index.html"):
                 return self._file(DASH / "index.html")
+            if path == "/api/stream":
+                return self._sse()
             if path.startswith("/api/"):
                 return self._api_get(path, query)
             if path.startswith("/dashboard/"):

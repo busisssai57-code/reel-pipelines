@@ -80,16 +80,17 @@ def cancel(job_id: str):
 
 # ----------------------------------------------------------------- events
 def emit(job_id: str | None, agent: str, type_: str, note: str = "", data: dict | None = None):
+    ts = time.time()
     with db.conn() as c:
         c.execute("INSERT INTO events(job_id,agent,type,note,data,ts) VALUES(?,?,?,?,?,?)",
-                  (job_id, agent, type_, note, json.dumps(data) if data else None, time.time()))
+                  (job_id, agent, type_, note, json.dumps(data) if data else None, ts))
     log.debug("[%s] %s/%s %s", job_id, agent, type_, note)
     # fan out to in-proc subscribers (synchronous, best-effort)
     with _lock:
         cbs = list(_subscribers.get(type_, [])) + list(_subscribers.get("*", []))
     for cb in cbs:
         try:
-            cb({"job_id": job_id, "agent": agent, "type": type_, "note": note, "data": data})
+            cb({"job_id": job_id, "agent": agent, "type": type_, "note": note, "data": data, "ts": ts})
         except Exception:
             log.exception("subscriber for %s failed", type_)
 
@@ -97,6 +98,14 @@ def emit(job_id: str | None, agent: str, type_: str, note: str = "", data: dict 
 def subscribe(event_type: str, callback: Callable):
     with _lock:
         _subscribers.setdefault(event_type, []).append(callback)
+
+
+def unsubscribe(event_type: str, callback: Callable):
+    """Remove a previously-registered callback (SSE clients call this on disconnect)."""
+    with _lock:
+        lst = _subscribers.get(event_type)
+        if lst and callback in lst:
+            lst.remove(callback)
 
 
 def recent_events(job_id: str | None = None, limit: int = 50) -> list[dict]:
