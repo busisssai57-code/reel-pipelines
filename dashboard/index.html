@@ -4,145 +4,800 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
-  <title>Reel Pipeline — AI Studio</title>
+  <title>Reel Studio — AI Video Production</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600;700&family=SF+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    /* Apple Design System Variables */
     :root {
-      --bg: #0a0a0f;
-      --surface: #13131a;
-      --surface2: #1c1c27;
-      --glass: rgba(255,255,255,0.04);
-      --glass-border: rgba(255,255,255,0.08);
-      --line: #2a2a3a;
-      --text: #f0f0ff;
-      --muted: #7a7a9a;
-      --accent: #6366f1;
-      --accent2: #8b5cf6;
-      --ok: #10b981;
-      --danger: #ef4444;
-      --warn: #f59e0b;
+      --bg-primary: #000000;
+      --bg-secondary: #1d1d1f;
+      --bg-tertiary: #2a2a2e;
+      --text-primary: #f5f5f7;
+      --text-secondary: #a1a1a6;
+      --text-tertiary: #86868b;
+      --accent: #0071e3;
+      --accent-light: #0a84ff;
+      --accent-dark: #0052cc;
+      --success: #34c759;
+      --warning: #ff9500;
+      --danger: #ff3b30;
+      --border: rgba(255,255,255,0.1);
+      --border-subtle: rgba(255,255,255,0.05);
+      --glass-light: rgba(255,255,255,0.03);
+      --glass-medium: rgba(255,255,255,0.08);
+      --glass-strong: rgba(255,255,255,0.12);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+      --shadow-lg: 0 12px 32px rgba(0,0,0,0.5);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -webkit-text-size-adjust: 100%;
+      text-rendering: optimizeLegibility;
+    }
+
     body { overflow: hidden; }
 
-    .app { display: grid; grid-template-columns: 280px 1fr; grid-template-rows: 80px 1fr; height: 100vh; }
-    .sidebar { grid-column: 1; grid-row: 1 / 3; background: var(--surface); border-right: 1px solid var(--line); padding: 24px; overflow-y: auto; }
-    .topbar { grid-column: 2; grid-row: 1; background: var(--surface); border-bottom: 1px solid var(--line); padding: 20px 40px; display: flex; align-items: center; justify-content: space-between; }
-    main { grid-column: 2; grid-row: 2; overflow-y: auto; padding: 40px; }
+    /* Layout Grid */
+    .app {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      grid-template-rows: 60px 1fr;
+      height: 100vh;
+    }
 
-    .brand { font-weight: 700; font-size: 18px; margin-bottom: 40px; display: flex; align-items: center; gap: 12px; color: var(--text); }
-    .brand::before { content: '🎬'; font-size: 24px; }
+    .sidebar {
+      grid-column: 1;
+      grid-row: 1 / 3;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      padding: 20px 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
 
-    nav { display: flex; flex-direction: column; gap: 8px; margin-bottom: 40px; }
-    .nav-link { padding: 12px 16px; border-radius: 8px; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 14px; transition: all 0.3s; display: flex; align-items: center; gap: 12px; }
-    .nav-link:hover { background: var(--glass); color: var(--text); }
-    .nav-link.active { background: var(--accent); color: white; }
+    .topbar {
+      grid-column: 2;
+      grid-row: 1;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
 
-    .view { display: none; }
-    .view.active { display: block; animation: fadeIn 0.3s ease; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    main {
+      grid-column: 2;
+      grid-row: 2;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 32px;
+    }
 
-    h1 { font-size: 32px; font-weight: 800; }
-    h2 { font-size: 20px; font-weight: 700; margin-bottom: 24px; }
+    /* Sidebar */
+    .brand {
+      font-weight: 700;
+      font-size: 17px;
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-primary);
+      letter-spacing: -0.5px;
+    }
 
-    .glass-card { background: var(--glass); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 16px; padding: 24px; transition: all 0.3s; }
-    .glass-card:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); transform: translateY(-4px); }
+    .brand::before {
+      content: '🎬';
+      font-size: 24px;
+    }
 
-    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
-    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    nav {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
 
-    .btn { padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 14px; }
-    .btn-primary { background: var(--accent); color: white; }
-    .btn-primary:hover { background: #5a5dd4; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(99,102,241,0.3); }
-    .btn-primary:active { transform: translateY(0); }
-    .btn-primary.loading { opacity: 0.7; pointer-events: none; }
-    .btn-secondary { background: var(--surface2); color: var(--text); }
-    .btn-secondary:hover { background: var(--line); }
+    .nav-link {
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 15px;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 500;
+      position: relative;
+    }
 
-    .agent-card { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-    .agent-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .agent-name { font-weight: 600; color: var(--text); }
-    .agent-status { font-size: 12px; padding: 4px 8px; border-radius: 4px; }
-    .agent-status.running { background: rgba(59,130,246,0.2); color: #3b82f6; animation: pulse 2s infinite; }
-    .agent-status.idle { background: rgba(107,114,128,0.2); color: var(--muted); }
-    .agent-status.error { background: rgba(239,68,68,0.2); color: var(--danger); }
+    .nav-link:hover {
+      background: var(--glass-medium);
+      color: var(--text-primary);
+    }
 
-    .event-timeline { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
-    .event-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px; background: rgba(255,255,255,0.02); border-radius: 8px; border-left: 3px solid var(--accent); }
-    .event-icon { font-size: 20px; }
-    .event-content { flex: 1; }
-    .event-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
-    .event-time { font-size: 11px; color: var(--muted); }
+    .nav-link.active {
+      background: var(--accent);
+      color: white;
+    }
 
-    .progress-ring { width: 200px; height: 200px; transform: rotate(-90deg); }
-    .progress-ring__circle { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
-    .progress-text { text-align: center; margin-top: -140px; }
-    .progress-pct { font-size: 48px; font-weight: 800; }
-    .progress-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    /* View Management */
+    .view {
+      display: none;
+      animation: fadeInUp 0.4s ease;
+    }
 
-    .stage-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
-    .stage-item { display: flex; flex-direction: column; align-items: center; padding: 16px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid var(--line); }
-    .stage-icon { font-size: 28px; margin-bottom: 8px; animation: none; }
-    .stage-icon.active { animation: spin 2s linear infinite; }
-    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    .stage-name { font-size: 12px; font-weight: 600; text-align: center; }
-    .stage-status { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .view.active {
+      display: block;
+    }
 
-    .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-    .badge.active { background: rgba(16,185,129,0.2); color: var(--ok); }
-    .badge.inactive { background: rgba(107,114,128,0.2); color: var(--muted); }
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
 
-    .stat-box { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; padding: 20px; text-align: center; }
-    .stat-value { font-size: 36px; font-weight: 800; color: var(--accent); margin-bottom: 8px; }
-    .stat-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    /* Typography */
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      margin-bottom: 8px;
+    }
 
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
-    .modal.active { display: flex; animation: fadeIn 0.3s ease; }
-    .modal-content { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 40px; max-width: 600px; max-height: 80vh; overflow-y: auto; }
-    .modal-title { font-size: 24px; font-weight: 800; margin-bottom: 20px; }
-    .modal-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: var(--muted); font-size: 24px; cursor: pointer; }
+    h2 {
+      font-size: 21px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      margin-bottom: 20px;
+      margin-top: 32px;
+    }
 
-    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 24px; color: var(--text); font-size: 14px; z-index: 2000; animation: slideUp 0.3s ease; }
-    @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-    .toast.success { border-left: 3px solid var(--ok); }
-    .toast.error { border-left: 3px solid var(--danger); }
+    h2:first-child {
+      margin-top: 0;
+    }
 
-    input, textarea { background: var(--surface2); border: 1px solid var(--line); border-radius: 8px; padding: 12px; color: var(--text); font-family: inherit; }
-    input:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+    .subtitle {
+      font-size: 15px;
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
 
-    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    /* Cards */
+    .card {
+      background: var(--glass-medium);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      background: var(--glass-strong);
+      border-color: var(--border);
+      transform: translateY(-1px);
+    }
+
+    .card-elevated {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Grids */
+    .grid-1x4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    /* Stat Boxes */
+    .stat-box {
+      background: var(--glass-medium);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .stat-box:hover {
+      border-color: var(--accent);
+      background: var(--glass-strong);
+    }
+
+    .stat-value {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 8px;
+      letter-spacing: -1px;
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 15px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-light);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active {
+      background: var(--accent-dark);
+      transform: translateY(0);
+    }
+
+    .btn-primary.loading {
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .btn-secondary {
+      background: var(--glass-medium);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--glass-strong);
+      border-color: var(--text-secondary);
+    }
+
+    .btn-sm {
+      padding: 8px 16px;
+      font-size: 14px;
+    }
+
+    /* Agents */
+    .agent-card {
+      background: var(--glass-medium);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 12px;
+      transition: all 0.2s ease;
+    }
+
+    .agent-card:hover {
+      background: var(--glass-strong);
+    }
+
+    .agent-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .agent-name {
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text-primary);
+    }
+
+    .agent-status {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+
+    .agent-status.idle {
+      background: var(--glass-strong);
+      color: var(--text-secondary);
+    }
+
+    .agent-status.running {
+      background: rgba(10,132,255,0.2);
+      color: var(--accent-light);
+      animation: pulse 2s infinite;
+    }
+
+    .agent-status.healing {
+      background: rgba(255,149,0,0.2);
+      color: var(--warning);
+    }
+
+    .agent-status.error {
+      background: rgba(255,59,48,0.2);
+      color: var(--danger);
+    }
+
+    .agent-info {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      display: flex;
+      gap: 12px;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    /* Events */
+    .event-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .event-item {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 12px;
+      background: var(--glass-light);
+      border-left: 2px solid var(--accent);
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .event-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .event-content {
+      flex: 1;
+    }
+
+    .event-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+
+    .event-time {
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    /* Render View */
+    .render-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+
+    .render-form {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-label {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .form-input {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-family: inherit;
+      transition: all 0.2s ease;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: var(--bg-tertiary);
+      box-shadow: 0 0 0 3px rgba(0,113,227,0.1);
+    }
+
+    select.form-input {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23a1a1a6' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+
+    .progress-ring {
+      width: 180px;
+      height: 180px;
+      transform: rotate(-90deg);
+    }
+
+    .progress-ring__circle {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 4;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.6s ease;
+    }
+
+    .progress-text {
+      text-align: center;
+      margin-top: -140px;
+    }
+
+    .progress-pct {
+      font-size: 44px;
+      font-weight: 700;
+      letter-spacing: -1px;
+    }
+
+    .progress-label {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      margin-top: 4px;
+    }
+
+    /* Stages */
+    .stage-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+    }
+
+    .stage-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+      background: var(--glass-light);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      transition: all 0.2s ease;
+    }
+
+    .stage-item.active {
+      border-color: var(--accent);
+      background: rgba(0,113,227,0.1);
+    }
+
+    .stage-icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .stage-icon.running {
+      animation: spin 2s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .stage-name {
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .stage-status {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-top: 4px;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .badge-success {
+      background: rgba(52,199,89,0.2);
+      color: var(--success);
+    }
+
+    .badge-pending {
+      background: rgba(255,149,0,0.2);
+      color: var(--warning);
+    }
+
+    .badge-error {
+      background: rgba(255,59,48,0.2);
+      color: var(--danger);
+    }
+
+    .badge-neutral {
+      background: var(--glass-medium);
+      color: var(--text-secondary);
+    }
+
+    /* Table */
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .table th {
+      background: var(--glass-light);
+      border: 1px solid var(--border);
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .table td {
+      border: 1px solid var(--border);
+      padding: 12px 16px;
+    }
+
+    .table tr:hover td {
+      background: var(--glass-light);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      color: var(--text-primary);
+      font-size: 14px;
+      z-index: 2000;
+      animation: slideUp 0.3s ease;
+      max-width: 380px;
+    }
+
+    .toast.success {
+      border-left: 3px solid var(--success);
+    }
+
+    .toast.error {
+      border-left: 3px solid var(--danger);
+    }
+
+    .toast.info {
+      border-left: 3px solid var(--accent);
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(100px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 540px;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: var(--shadow-lg);
+    }
+
+    /* Status Indicator */
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: none;
+    }
+
+    .status-dot.online {
+      background: var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.offline {
+      background: var(--text-tertiary);
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .app {
+        grid-template-columns: 200px 1fr;
+      }
+
+      .sidebar {
+        padding: 16px 12px;
+      }
+
+      .render-container {
+        grid-template-columns: 1fr;
+      }
+
+      main {
+        padding: 24px;
+      }
+
+      .grid-1x4 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      h1 {
+        font-size: 28px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: 60px 60px 1fr;
+      }
+
+      .sidebar {
+        grid-column: 1;
+        grid-row: 2;
+        flex-direction: row;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding: 0 16px;
+        overflow-x: auto;
+      }
+
+      nav {
+        flex-direction: row;
+      }
+
+      .topbar {
+        grid-column: 1;
+      }
+
+      main {
+        grid-column: 1;
+        padding: 20px;
+      }
+
+      .grid-1x4 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--glass-medium);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--glass-strong);
+    }
   </style>
 </head>
 <body>
   <div class="app">
+    <!-- Sidebar -->
     <div class="sidebar">
       <div class="brand">Reel Studio</div>
       <nav id="nav">
         <button class="nav-link active" data-view="dashboard">📊 Dashboard</button>
         <button class="nav-link" data-view="render">🎬 Render</button>
-        <button class="nav-link" data-view="agents">🤖 AI Agents</button>
+        <button class="nav-link" data-view="agents">🤖 Agents</button>
         <button class="nav-link" data-view="trends">📈 Trends</button>
         <button class="nav-link" data-view="engagement">💬 Engagement</button>
         <button class="nav-link" data-view="drafts">📋 Drafts</button>
       </nav>
     </div>
 
+    <!-- Top Bar -->
     <div class="topbar">
       <h1 id="pageTitle">Dashboard</h1>
-      <div style="display:flex; gap:12px;">
-        <button class="btn btn-secondary" id="refreshBtn">⟳ Refresh</button>
-        <button class="btn btn-primary" id="statusBtn">● Offline</button>
+      <div style="display: flex; gap: 12px;">
+        <button class="btn btn-secondary btn-sm" id="refreshBtn">⟳ Refresh</button>
+        <button class="btn btn-primary btn-sm" id="statusBtn">
+          <span class="status-dot online"></span> Connected
+        </button>
       </div>
     </div>
 
+    <!-- Main Content -->
     <main>
       <!-- Dashboard View -->
       <div class="view active" id="dashboard">
-        <div class="grid-4" style="margin-bottom: 40px;">
+        <h2>Overview</h2>
+        <div class="grid-1x4">
           <div class="stat-box">
             <div class="stat-value" id="statTotal">0</div>
             <div class="stat-label">Total Reels</div>
@@ -161,36 +816,40 @@
           </div>
         </div>
 
-        <h2>AI Team Status</h2>
-        <div id="agentsList"></div>
+        <h2>AI Agents</h2>
+        <div id="agentsList" class="grid-2"></div>
 
-        <h2 style="margin-top: 40px;">Live Event Stream</h2>
-        <div id="eventStream" style="max-height: 300px; overflow-y: auto;"></div>
+        <h2>Recent Events</h2>
+        <div class="card" style="max-height: 320px; overflow-y: auto;">
+          <div id="eventStream"></div>
+        </div>
       </div>
 
       <!-- Render View -->
       <div class="view" id="render">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
-          <div>
-            <h2>Start Production</h2>
-            <div class="glass-card" style="margin-bottom: 20px;">
-              <label style="display: block; margin-bottom: 12px; font-weight: 600;">Topic</label>
-              <input type="text" id="renderTopic" placeholder="E.g., Why the ocean is salty" style="width: 100%; margin-bottom: 16px;">
+        <h2>Start Production</h2>
+        <div class="render-container">
+          <div class="render-form">
+            <div class="form-group">
+              <label class="form-label">Topic</label>
+              <input type="text" id="renderTopic" placeholder="E.g., Why the ocean is salty" class="form-input">
+            </div>
 
-              <label style="display: block; margin-bottom: 12px; font-weight: 600;">Visual Source</label>
-              <select id="renderSource" style="width: 100%; padding: 12px; background: var(--surface2); border: 1px solid var(--line); border-radius: 8px; color: var(--text); margin-bottom: 20px;">
+            <div class="form-group">
+              <label class="form-label">Visual Source</label>
+              <select id="renderSource" class="form-input">
                 <option value="auto">Auto (AI Generation)</option>
                 <option value="stock">Stock Footage</option>
                 <option value="hybrid">Hybrid Mix</option>
               </select>
-
-              <button class="btn btn-primary" id="startRenderBtn" style="width: 100%; padding: 16px;">
-                <span id="renderBtnText">▶ Start Render</span>
-              </button>
             </div>
 
-            <div class="glass-card">
-              <h3 style="margin-bottom: 16px; font-weight: 600;">Pipeline Stages</h3>
+            <button class="btn btn-primary" id="startRenderBtn" style="padding: 12px 24px; font-size: 16px;">
+              ▶ Start Render
+            </button>
+
+            <div class="card">
+              <h2 style="margin-top: 0; font-size: 17px;">Pipeline Stages</h2>
               <div class="stage-list" id="stageList">
                 <div class="stage-item">
                   <div class="stage-icon">📝</div>
@@ -208,7 +867,7 @@
                   <div class="stage-status" id="stage-visuals">Waiting</div>
                 </div>
                 <div class="stage-item">
-                  <div class="stage-icon">📖</div>
+                  <div class="stage-icon">📺</div>
                   <div class="stage-name">Subtitles</div>
                   <div class="stage-status" id="stage-subtitles">Waiting</div>
                 </div>
@@ -218,7 +877,7 @@
                   <div class="stage-status" id="stage-music">Waiting</div>
                 </div>
                 <div class="stage-item">
-                  <div class="stage-icon">⚙️</div>
+                  <div class="stage-icon">⬇️</div>
                   <div class="stage-name">Export</div>
                   <div class="stage-status" id="stage-export">Waiting</div>
                 </div>
@@ -227,98 +886,195 @@
           </div>
 
           <div>
-            <h2>Production Monitor</h2>
-            <div class="glass-card">
-              <div style="text-align: center; margin-bottom: 20px;">
+            <div class="card" style="text-align: center; padding: 40px;">
+              <div id="progressContainer" style="display: none;">
                 <svg class="progress-ring" viewBox="0 0 200 200">
-                  <circle class="progress-ring__circle" stroke-dasharray="628" stroke-dashoffset="628" r="100" cx="100" cy="100" id="progressRing"></circle>
+                  <circle class="progress-ring__circle" cx="100" cy="100" r="95"></circle>
                 </svg>
                 <div class="progress-text">
                   <div class="progress-pct" id="progressPct">0%</div>
-                  <div class="progress-label">Render Progress</div>
+                  <div class="progress-label" id="progressLabel">Initializing...</div>
                 </div>
               </div>
+              <div id="noProgressContainer">
+                <div style="font-size: 64px; margin-bottom: 16px;">🎬</div>
+                <p class="subtitle">Ready to produce video</p>
+              </div>
+            </div>
 
-              <div id="renderEvents" style="max-height: 300px; overflow-y: auto;"></div>
+            <div class="card" style="margin-top: 20px;">
+              <h2 style="margin-top: 0; font-size: 17px;">Timeline</h2>
+              <div id="renderTimeline" class="event-timeline"></div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- AI Agents View -->
+      <!-- Agents View -->
       <div class="view" id="agents">
-        <h2>Autonomous AI Agents (12 Total)</h2>
-        <div class="grid-2" id="allAgentsList"></div>
+        <h2>AI Agent Status</h2>
+        <div id="agentsDetail" class="grid-2"></div>
       </div>
 
       <!-- Trends View -->
       <div class="view" id="trends">
         <h2>Trending Topics</h2>
-        <div id="trendsList"></div>
+        <div class="card">
+          <table class="table" id="trendsTable">
+            <thead>
+              <tr>
+                <th>Topic</th>
+                <th>Source</th>
+                <th>Score</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="trendsList"></tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Engagement View -->
       <div class="view" id="engagement">
         <h2>Engagement Metrics</h2>
-        <div class="grid-3" id="engagementList"></div>
+        <div id="engagementList" class="grid-2"></div>
       </div>
 
       <!-- Drafts View -->
       <div class="view" id="drafts">
-        <h2>Drafts & Videos</h2>
-        <div id="draftsList"></div>
+        <h2>Generated Videos</h2>
+        <div id="draftsList" class="grid-2"></div>
       </div>
     </main>
   </div>
 
   <script>
+    // ===== STATE & CONFIG =====
     const state = {
-      live: false,
-      drafts: [],
-      agents: [],
-      trends: [],
-      engagement: [],
-      events: [],
+      currentView: 'dashboard',
       currentRender: null,
-      pollInterval: null
+      isPolling: false,
+      agents: [],
+      drafts: [],
+      events: [],
+      statusOnline: true
     };
 
-    // Connect to backend
-    async function init() {
-      const health = await fetch('/api/health').then(r => r.json()).catch(() => null);
-      state.live = !!health;
-      document.getElementById('statusBtn').textContent = state.live ? '● Online' : '● Offline';
-      document.getElementById('statusBtn').style.background = state.live ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)';
-      if (state.live) await loadAll();
-      setInterval(loadAll, 3500);
+    const api = {
+      baseUrl: 'http://127.0.0.1:8787',
+
+      async fetchAgents() {
+        try {
+          const res = await fetch(`${this.baseUrl}/api/agents`);
+          return res.ok ? res.json() : [];
+        } catch (e) {
+          console.error('Failed to fetch agents:', e);
+          return [];
+        }
+      },
+
+      async fetchDrafts() {
+        try {
+          const res = await fetch(`${this.baseUrl}/api/drafts`);
+          return res.ok ? res.json() : [];
+        } catch (e) {
+          console.error('Failed to fetch drafts:', e);
+          return [];
+        }
+      },
+
+      async fetchTrends() {
+        try {
+          const res = await fetch(`${this.baseUrl}/api/trends`);
+          return res.ok ? res.json() : [];
+        } catch (e) {
+          return [];
+        }
+      },
+
+      async fetchEngagement() {
+        try {
+          const res = await fetch(`${this.baseUrl}/api/engagement`);
+          return res.ok ? res.json() : [];
+        } catch (e) {
+          return [];
+        }
+      },
+
+      async startRender(topic, visualSource) {
+        try {
+          const res = await fetch(`${this.baseUrl}/api/render`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topic, visual_source: visualSource })
+          });
+          return res.ok ? res.json() : null;
+        } catch (e) {
+          console.error('Failed to start render:', e);
+          return null;
+        }
+      },
+
+      async fetchRenderEvents(jobId) {
+        try {
+          const res = await fetch(`${this.baseUrl}/api/render/${jobId}/events`);
+          return res.ok ? res.json() : {};
+        } catch (e) {
+          return {};
+        }
+      }
+    };
+
+    // ===== UI FUNCTIONS =====
+    function switchView(viewName) {
+      // Hide all views
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+
+      // Show selected view
+      document.getElementById(viewName).classList.add('active');
+
+      // Update nav
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.toggle('active', link.dataset.view === viewName);
+      });
+
+      // Update title
+      const titles = {
+        dashboard: 'Dashboard',
+        render: 'Render',
+        agents: 'Agents',
+        trends: 'Trends',
+        engagement: 'Engagement',
+        drafts: 'Drafts'
+      };
+      document.getElementById('pageTitle').textContent = titles[viewName] || 'Dashboard';
+
+      state.currentView = viewName;
     }
 
-    async function loadAll() {
-      if (!state.live) return;
-      const [drafts, agents, trends, engagement, events] = await Promise.all([
-        fetch('/api/drafts').then(r => r.json()).catch(() => []),
-        fetch('/api/agents').then(r => r.json()).catch(() => []),
-        fetch('/api/trends').then(r => r.json()).catch(() => []),
-        fetch('/api/engagement').then(r => r.json()).catch(() => []),
-        fetch('/api/events').then(r => r.json()).catch(() => [])
-      ]);
-      state.drafts = drafts;
-      state.agents = agents;
-      state.trends = trends;
-      state.engagement = engagement;
-      state.events = events;
-      updateAllViews();
+    function showToast(message, type = 'info') {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(100px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
     }
 
-    function updateAllViews() {
-      updateDashboard();
-      updateAgents();
-      updateTrends();
-      updateEngagement();
-      updateDrafts();
+    async function refreshDashboard() {
+      state.agents = await api.fetchAgents();
+      state.drafts = await api.fetchDrafts();
+
+      updateStats();
+      updateAgentsList();
+      updateAgentsDetail();
     }
 
-    function updateDashboard() {
+    function updateStats() {
       const total = state.drafts.length;
       const pending = state.drafts.filter(d => d.status === 'pending').length;
       const approved = state.drafts.filter(d => d.status === 'approved').length;
@@ -328,205 +1084,202 @@
       document.getElementById('statPending').textContent = pending;
       document.getElementById('statApproved').textContent = approved;
       document.getElementById('statPublished').textContent = published;
+    }
 
-      const agentsList = document.getElementById('agentsList');
-      agentsList.innerHTML = state.agents.map(a => `
-        <div class="agent-card">
+    function updateAgentsList() {
+      const container = document.getElementById('agentsList');
+      container.innerHTML = '';
+
+      state.agents.forEach(agent => {
+        const card = document.createElement('div');
+        card.className = 'agent-card';
+        const status = agent.status || 'idle';
+
+        card.innerHTML = `
           <div class="agent-header">
-            <div class="agent-name">${a.name}</div>
-            <span class="agent-status ${a.status === 'running' ? 'running' : a.status === 'idle' ? 'idle' : 'error'}">${a.status.toUpperCase()}</span>
+            <span class="agent-name">${agent.name}</span>
+            <span class="agent-status ${status}">${status}</span>
           </div>
-          <div style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">Circuit: ${a.circuit_open ? '🔴 OPEN' : '🟢 CLOSED'}</div>
-          <div style="font-size: 11px; color: var(--muted);">Last: ${a.last_run ? new Date(a.last_run * 1000).toLocaleTimeString() : 'Never'}</div>
-        </div>
-      `).join('');
-
-      const eventStream = document.getElementById('eventStream');
-      eventStream.innerHTML = (state.events || []).slice(0, 10).map(e => `
-        <div class="event-item">
-          <div class="event-icon">📌</div>
-          <div class="event-content">
-            <div class="event-title">${e.agent} → ${e.type}</div>
-            <div class="event-time">${new Date(e.ts * 1000).toLocaleTimeString()}</div>
+          <div class="agent-info">
+            <span>Circuit: ${agent.circuit_open ? '🔴 Open' : '🟢 Closed'}</span>
           </div>
-        </div>
-      `).join('');
-    }
-
-    function updateAgents() {
-      const allAgentsList = document.getElementById('allAgentsList');
-      allAgentsList.innerHTML = state.agents.map(a => `
-        <div class="glass-card">
-          <div style="font-weight: 600; margin-bottom: 8px;">${a.name}</div>
-          <div style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">Status: <span class="badge ${a.status === 'idle' ? 'inactive' : 'active'}">${a.status}</span></div>
-          <div style="font-size: 11px; color: var(--muted);">Circuit: ${a.circuit_open ? '🔴 OPEN' : '🟢 CLOSED'}</div>
-        </div>
-      `).join('');
-    }
-
-    function updateTrends() {
-      const trendsList = document.getElementById('trendsList');
-      trendsList.innerHTML = (state.trends || []).slice(0, 20).map(t => `
-        <div class="glass-card" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <div style="font-weight: 600; margin-bottom: 4px;">${t.topic}</div>
-            <div style="font-size: 11px; color: var(--muted);">${t.source} • Raw: ${(t.raw_score || 0).toFixed(1)} • Prior: ${(t.prior_score || 0).toFixed(2)}</div>
-          </div>
-          <button class="btn btn-primary" onclick="produceVideo('${t.topic.replace(/'/g, "\\'")}')">Produce</button>
-        </div>
-      `).join('');
-    }
-
-    function updateEngagement() {
-      const engagementList = document.getElementById('engagementList');
-      const grouped = {};
-      (state.engagement || []).forEach(e => {
-        if (!grouped[e.draft_id]) grouped[e.draft_id] = [];
-        grouped[e.draft_id].push(e);
+        `;
+        container.appendChild(card);
       });
-      engagementList.innerHTML = Object.entries(grouped).slice(0, 12).map(([id, metrics]) => `
-        <div class="glass-card">
-          <div style="font-weight: 600; margin-bottom: 12px;">Draft ${id}</div>
-          ${metrics.map(m => `
-            <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line);">
-              <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px; color: var(--accent);">${m.platform.toUpperCase()}</div>
-              <div style="font-size: 11px; color: var(--muted); display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-                <div>👁 ${m.views} views</div>
-                <div>❤️ ${m.likes} likes</div>
-                <div>💬 ${m.comments} comments</div>
-                <div>⭐ ${(m.reward || 0).toFixed(2)} reward</div>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      `).join('');
     }
 
-    function updateDrafts() {
-      const draftsList = document.getElementById('draftsList');
-      draftsList.innerHTML = (state.drafts || []).slice(0, 20).map(d => `
-        <div class="glass-card" style="margin-bottom: 12px;">
-          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-            <div>
-              <div style="font-weight: 600; margin-bottom: 4px;">${d.title || d.topic}</div>
-              <div style="font-size: 11px; color: var(--muted);">${d.topic}</div>
-            </div>
-            <span class="badge ${d.status === 'published' ? 'active' : d.status === 'approved' ? 'active' : 'inactive'}">${d.status.toUpperCase()}</span>
+    function updateAgentsDetail() {
+      const container = document.getElementById('agentsDetail');
+      container.innerHTML = '';
+
+      state.agents.forEach(agent => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        const status = agent.status || 'idle';
+
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="font-weight: 600;">${agent.name}</div>
+            <span class="badge badge-${status === 'idle' ? 'neutral' : status === 'running' ? 'pending' : status === 'error' ? 'error' : 'neutral'}">
+              ${status}
+            </span>
           </div>
-          <div style="font-size: 11px; color: var(--muted);">Pipeline ${d.pipeline} • ${d.category}</div>
-        </div>
-      `).join('');
+          <div style="font-size: 13px; color: var(--text-tertiary);">
+            Circuit: ${agent.circuit_open ? '🔴' : '🟢'} ${agent.circuit_open ? 'Open' : 'Closed'}
+          </div>
+        `;
+        container.appendChild(card);
+      });
     }
 
-    async function produceVideo(topic) {
-      try {
-        const r = await fetch('/api/render', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic, visual_source: 'auto' })
-        });
-        const data = await r.json();
-        state.currentRender = data.job_id;
-        showToast(`Producing: ${topic}`, 'success');
-        switchView('render');
-        pollRenderProgress();
-      } catch (e) {
-        showToast('Error: ' + e.message, 'error');
-      }
-    }
-
+    // ===== RENDER WORKFLOW =====
     async function startRender() {
       const topic = document.getElementById('renderTopic').value.trim();
+      const visualSource = document.getElementById('renderSource').value;
+
       if (!topic) {
-        showToast('Enter a topic', 'error');
+        showToast('Please enter a topic', 'error');
         return;
       }
+
       const btn = document.getElementById('startRenderBtn');
-      btn.classList.add('loading');
-      btn.innerHTML = '<span class="spinner"></span> Rendering...';
-      await produceVideo(topic);
-    }
+      btn.disabled = true;
+      btn.textContent = 'Starting...';
 
-    async function pollRenderProgress() {
-      if (!state.currentRender) return;
-      try {
-        const data = await fetch(`/api/render/${state.currentRender}/events`).then(r => r.json());
-        const events = data.events || [];
-        const stages = ['script', 'tts', 'visuals', 'subtitles', 'music', 'export'];
-        let progress = 0;
+      const result = await api.startRender(topic, visualSource);
 
-        events.forEach(e => {
-          const idx = stages.findIndex(s => e.type.includes(s));
-          if (idx >= 0) {
-            progress = ((idx + 1) / stages.length) * 100;
-            const icon = e.type.includes('done') ? '✅' : '⟳';
-            document.getElementById(`stage-${stages[idx]}`).innerHTML = `<span style="animation: ${e.type.includes('done') ? 'none' : 'spin 2s linear infinite'};">${icon}</span>`;
-          }
-        });
-
-        document.getElementById('progressPct').textContent = Math.round(progress) + '%';
-        const offset = (628 - (progress / 100) * 628).toFixed(2);
-        document.getElementById('progressRing').style.strokeDashoffset = offset;
-
-        const renderEvents = document.getElementById('renderEvents');
-        renderEvents.innerHTML = events.slice(-5).map(e => `
-          <div class="event-item">
-            <div class="event-icon">${e.type.includes('done') ? '✅' : '⟳'}</div>
-            <div class="event-content">
-              <div class="event-title">${e.type}</div>
-              <div class="event-time">${new Date(e.ts * 1000).toLocaleTimeString()}</div>
-            </div>
-          </div>
-        `).join('');
-
-        if (events.some(e => e.type === 'render_done')) {
-          showToast('Render complete! ✓', 'success');
-          document.getElementById('startRenderBtn').classList.remove('loading');
-          document.getElementById('renderBtnText').textContent = '✓ Complete';
-          setTimeout(() => {
-            document.getElementById('startRenderBtn').classList.remove('loading');
-            document.getElementById('renderBtnText').textContent = '▶ Start Render';
-            await loadAll();
-          }, 2000);
-          return;
-        }
-        setTimeout(pollRenderProgress, 500);
-      } catch (e) {
-        // Silent fail, continue polling
-        setTimeout(pollRenderProgress, 1000);
+      if (result && result.job_id) {
+        state.currentRender = result.job_id;
+        showToast(`Producing: ${topic}`, 'success');
+        startPolling();
+        showProgress();
+      } else {
+        showToast('Failed to start render', 'error');
+        btn.disabled = false;
+        btn.textContent = '▶ Start Render';
       }
     }
 
-    function switchView(name) {
-      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-      document.getElementById(name).classList.add('active');
-      document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
-      document.querySelector(`[data-view="${name}"]`)?.classList.add('active');
-
-      const titles = { dashboard: 'Dashboard', render: 'Production', agents: 'AI Agents', trends: 'Trends', engagement: 'Engagement', drafts: 'Drafts' };
-      document.getElementById('pageTitle').textContent = titles[name] || 'Studio';
+    function showProgress() {
+      document.getElementById('noProgressContainer').style.display = 'none';
+      document.getElementById('progressContainer').style.display = 'block';
     }
 
-    function showToast(msg, type = 'info') {
-      const t = document.createElement('div');
-      t.className = `toast ${type}`;
-      t.textContent = msg;
-      document.body.appendChild(t);
-      setTimeout(() => t.remove(), 3000);
+    function startPolling() {
+      if (state.isPolling) return;
+      state.isPolling = true;
+
+      const pollInterval = setInterval(async () => {
+        if (!state.currentRender) {
+          clearInterval(pollInterval);
+          state.isPolling = false;
+          return;
+        }
+
+        const events = await api.fetchRenderEvents(state.currentRender);
+        updateProgress(events);
+
+        if (events.status === 'done' || events.status === 'failed') {
+          clearInterval(pollInterval);
+          state.isPolling = false;
+        }
+      }, 500);
     }
 
-    // Event listeners
-    document.getElementById('startRenderBtn').addEventListener('click', startRender);
-    document.getElementById('refreshBtn').addEventListener('click', loadAll);
-    document.querySelectorAll('.nav-link').forEach(btn => {
-      btn.addEventListener('click', () => switchView(btn.dataset.view));
-    });
-    document.getElementById('renderTopic').addEventListener('keypress', e => {
-      if (e.key === 'Enter') startRender();
-    });
+    function updateProgress(events) {
+      const stages = ['script', 'tts', 'visuals', 'subtitles', 'music', 'export'];
+      let completed = 0;
 
-    // Init
-    init();
+      stages.forEach((stage, index) => {
+        const el = document.getElementById(`stage-${stage}`);
+        const stageItem = el?.closest('.stage-item');
+
+        if (events[stage] === 'done') {
+          el.textContent = '✓ Done';
+          stageItem?.classList.add('active');
+          completed++;
+        } else if (events[stage] === 'running') {
+          el.textContent = '◊ Running';
+          el.parentElement.querySelector('.stage-icon').classList.add('running');
+          stageItem?.classList.add('active');
+        }
+      });
+
+      const progress = Math.round((completed / stages.length) * 100);
+      document.getElementById('progressPct').textContent = progress + '%';
+      document.getElementById('progressLabel').textContent = `${stages[completed] || 'Complete'} stage`;
+
+      const circumference = 2 * Math.PI * 95;
+      const offset = circumference - (progress / 100) * circumference;
+      document.querySelector('.progress-ring__circle').style.strokeDashoffset = offset;
+    }
+
+    // ===== TRENDS & ENGAGEMENT =====
+    async function updateTrends() {
+      const trends = await api.fetchTrends();
+      const tbody = document.getElementById('trendsList');
+      tbody.innerHTML = '';
+
+      (trends || []).slice(0, 10).forEach(trend => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${trend.topic}</td>
+          <td><span class="badge badge-neutral">${trend.source}</span></td>
+          <td>${(trend.score || 0).toFixed(2)}</td>
+          <td><button class="btn btn-sm btn-primary">Produce</button></td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    async function updateEngagement() {
+      const engagement = await api.fetchEngagement();
+      const container = document.getElementById('engagementList');
+      container.innerHTML = '';
+
+      (engagement || []).slice(0, 6).forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div style="margin-bottom: 12px; font-weight: 600;">${item.draft_id}</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+            <div>
+              <div style="color: var(--text-tertiary); margin-bottom: 4px;">Views</div>
+              <div style="font-weight: 600;">${item.views || 0}</div>
+            </div>
+            <div>
+              <div style="color: var(--text-tertiary); margin-bottom: 4px;">Likes</div>
+              <div style="font-weight: 600;">${item.likes || 0}</div>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // ===== INIT & POLLING =====
+    function initUI() {
+      // Nav listeners
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', () => switchView(link.dataset.view));
+      });
+
+      // Render button
+      document.getElementById('startRenderBtn').addEventListener('click', startRender);
+
+      // Refresh button
+      document.getElementById('refreshBtn').addEventListener('click', refreshDashboard);
+
+      // Initial load
+      refreshDashboard();
+      updateTrends();
+      updateEngagement();
+
+      // Auto-refresh
+      setInterval(refreshDashboard, 3500);
+    }
+
+    document.addEventListener('DOMContentLoaded', initUI);
   </script>
 </body>
 </html>
