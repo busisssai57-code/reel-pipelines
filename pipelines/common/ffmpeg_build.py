@@ -46,14 +46,18 @@ def probe_duration(path: Path) -> float:
 
 # ---------------------------------------------------------------- segments
 def kenburns_segment(img: Path, dur: float, out: Path) -> Path:
-    frames = max(1, int(dur * FPS))
-    vf = (f"scale={int(W*1.5)}:{int(H*1.5)}:force_original_aspect_ratio=increase,"
-          f"crop={int(W*1.5)}:{int(H*1.5)},"
-          f"zoompan=z='min(zoom+0.0015,1.5)':d={frames}:"
-          f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={W}x{H}:fps={FPS},"
-          f"setsar=1,format=yuv420p")
+    """Render a still image to video with subtle zoom-in (Ken Burns) effect."""
+    frames = max(1, int(round(dur * FPS)))
+    vf = (
+        f"scale={W*2}:{H*2}:force_original_aspect_ratio=increase,"
+        f"crop={W*2}:{H*2},"
+        f"zoompan=z='min(zoom+0.0015,1.5)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+        f":d={frames}:s={W}x{H}:fps={FPS},"
+        "setsar=1,format=yuv420p"
+    )
     _run(["-loop", "1", "-framerate", FPS, "-t", f"{dur:.3f}", "-i", img,
-          "-vf", vf, "-an", "-c:v", config.VIDEO_CODEC, "-pix_fmt", "yuv420p", out])
+          "-vf", vf, "-an", "-c:v", config.VIDEO_CODEC, "-preset", "veryfast",
+          "-pix_fmt", "yuv420p", out])
     return out
 
 
@@ -72,7 +76,8 @@ def _concat(segments: list[Path], out: Path) -> Path:
         listfile = f.name
     try:
         _run(["-f", "concat", "-safe", "0", "-i", listfile,
-              "-c:v", config.VIDEO_CODEC, "-pix_fmt", "yuv420p", "-r", FPS, out])
+              "-c:v", config.VIDEO_CODEC, "-preset", "veryfast",
+              "-pix_fmt", "yuv420p", "-r", FPS, out])
     finally:
         os.unlink(listfile)
     return out
@@ -89,6 +94,11 @@ def finalize(video_track: Path, vo_wav: Path, ass: Path, music: Path | None,
     out_mp4 = Path(out_mp4)
     out_mp4.parent.mkdir(parents=True, exist_ok=True)
     total = probe_duration(video_track)
+    if total <= 0.0:
+        raise ValueError(
+            f"finalize: cannot determine duration of {video_track}; "
+            "ffprobe returned 0 (file may be corrupt or ffprobe missing)"
+        )
 
     inputs = ["-i", video_track, "-i", vo_wav]
     if music:
@@ -99,10 +109,10 @@ def finalize(video_track: Path, vo_wav: Path, ass: Path, music: Path | None,
         filt = (
             f"[0:v]subtitles='{sub}'[v];"
             "[1:a]aresample=48000,aformat=channel_layouts=stereo,"
-            "loudnorm=I=-16:TP=-1.5:LRA=11[vo];"
+            "loudnorm=I=-16:TP=-1.5:LRA=11,asplit=2[vo_sc][vo_mix];"
             "[2:a]aresample=48000,aformat=channel_layouts=stereo,volume=0.35[mus];"
-            "[mus][vo]sidechaincompress=threshold=0.04:ratio=10:attack=20:release=350[duck];"
-            "[duck][vo]amix=inputs=2:duration=first:dropout_transition=0,"
+            "[mus][vo_sc]sidechaincompress=threshold=0.04:ratio=10:attack=20:release=350[duck];"
+            "[duck][vo_mix]amix=inputs=2:duration=first:dropout_transition=0,"
             "alimiter=limit=0.95[aout]"
         )
     else:
@@ -111,7 +121,8 @@ def finalize(video_track: Path, vo_wav: Path, ass: Path, music: Path | None,
                 "loudnorm=I=-16:TP=-1.5:LRA=11[aout]")
 
     _run([*inputs, "-filter_complex", filt, "-map", "[v]", "-map", "[aout]",
-          "-c:v", config.VIDEO_CODEC, "-pix_fmt", "yuv420p", "-c:a", config.AUDIO_CODEC,
+          "-c:v", config.VIDEO_CODEC, "-preset", "veryfast",
+          "-pix_fmt", "yuv420p", "-c:a", config.AUDIO_CODEC,
           "-b:a", "192k", "-r", FPS, "-t", f"{total:.3f}", "-movflags", "+faststart", out_mp4])
 
     if thumb:

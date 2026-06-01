@@ -14,16 +14,17 @@ morning**; approve schedules a reel, reject generates a fresh proposition.
 | Timestamps | **Whisper** (`faster-whisper`, falls back to `openai-whisper`) |
 | Video/audio | **FFmpeg** |
 | Glue | **Python** |
-| Footage/images | **Archive.org, Pixabay, Pexels** (free public APIs) |
-| Music | local CC/CC0 library, matched by mood |
+| Footage/images | **Pixabay, Pexels, optional Archive.org** (free public APIs) |
+| Procedural visuals | **Pillow** key-art fallback for offline renders |
+| Music | local CC/CC0 library or generated procedural bed, matched by mood |
 
 ## Pipelines
 - **Pipeline A — Synthetic-Visual reel:** topic → script (qwen) → Kokoro TTS →
-  locally-generated images (Stable Diffusion → Pixabay stock → placeholder
-  fallback) → Whisper timestamps → styled subtitles → matched music → export.
+  locally-generated images (Stable Diffusion → Pixabay stock → procedural
+  key art) → Whisper timestamps → styled subtitles → matched music → export.
 - **Pipeline B — Stock-Footage documentary reel:** historical/geographic anecdote
   (qwen) → script → **rotated** Kokoro voice → footage from
-  Archive.org/Pixabay/Pexels (license-logged) → FFmpeg edit → **category-styled**
+  Pixabay/Pexels/optional Archive.org (license-logged) → FFmpeg edit → **category-styled**
   subtitles → matched music → export.
 
 ## Install
@@ -39,6 +40,7 @@ winget install Gyan.FFmpeg     # then restart shell so ffmpeg is on PATH
 
 # 4. Config
 copy .env.example .env         # fill PEXELS/PIXABAY keys + Discord token/channel
+# Optional: set ARCHIVE_MEDIA_ENABLED=1 if you want Archive.org lookups.
 
 # 5. Music: drop CC0/CC tracks into music_library\  named by mood,
 #    e.g. epic_cinematic_01.mp3, calm_ambient_forest.mp3, documentary_underscore.mp3
@@ -55,6 +57,7 @@ copy .env.example .env         # fill PEXELS/PIXABAY keys + Discord token/channe
 .\.venv\Scripts\python.exe run.py a "Why the ocean is salty"         # one Pipeline A reel
 .\.venv\Scripts\python.exe run.py b "The siege of Constantinople"    # one Pipeline B reel
 .\.venv\Scripts\python.exe run.py batch --pipeline A --n 5           # 5 Pipeline A drafts
+.\.venv\Scripts\python.exe run.py validate drafts\A_18.mp4 --workflow drafts\A_18.workflow.md
 .\.venv\Scripts\python.exe run.py bot --post-now                     # Discord review now
 .\scripts\verify-production.ps1                                      # full verification
 ```
@@ -74,8 +77,9 @@ copy .env.example .env         # fill PEXELS/PIXABAY keys + Discord token/channe
 - **qwen** unreachable → deterministic offline script/anecdote stubs.
 - **Kokoro** missing → correctly-timed silent WAV (downstream still renders).
 - **Whisper** missing → even-distribution word timing from the known script.
-- **Stable Diffusion** missing → Pixabay stock → FFmpeg gradient placeholder.
-- **music_library** empty → reel exports without music.
+- **Stable Diffusion** missing → Pixabay stock → local procedural key art.
+- **No media keys / Archive disabled** → local procedural key art.
+- **music_library** empty → local procedural music bed.
 - **FFmpeg** is the one hard requirement for an actual MP4 export.
 
 Every downloaded asset's **source URL + license** is recorded in `state.db`

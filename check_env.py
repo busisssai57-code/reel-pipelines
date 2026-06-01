@@ -36,17 +36,26 @@ def main():
         print(f"[{'OK ' if _has_module(mod) else 'SKIP'}] {mod:16} (optional) {desc}")
     # keys
     print()
-    for k in ("PEXELS_API_KEY", "PIXABAY_API_KEY", "DISCORD_BOT_TOKEN"):
-        print(f"[{'OK ' if getattr(config, k) else 'MISS'}] {k}")
+    for label, attr in (("PEXELS_KEY / PEXELS_API_KEY", "PEXELS_API_KEY"),
+                        ("PIXABAY_KEY / PIXABAY_API_KEY", "PIXABAY_API_KEY"),
+                        ("DISCORD_BOT_TOKEN", "DISCORD_BOT_TOKEN")):
+        print(f"[{'OK ' if getattr(config, attr) else 'MISS'}] {label}")
     print(f"[{'OK ' if config.DISCORD_CHANNEL_ID else 'MISS'}] DISCORD_CHANNEL_ID")
     print(f"\nqwen endpoint: {config.QWEN_BASE_URL}  model: {config.QWEN_MODEL}")
     print(f"music_library tracks: {len(list(config.MUSIC_LIBRARY.glob('*')))}")
+    print(f"archive.org media: {'enabled' if config.ARCHIVE_MEDIA_ENABLED else 'disabled (offline/local default)'}")
     print()
     from pipelines.common import hunyuan_video, autopost
     h = hunyuan_video.health()
     print(f"[{'OK ' if h['available'] else 'MISS'}] Hunyuan backend -> {h['comfy_url']}")
     for name, ok in h["installed"].items():
-        print(f"[{'OK ' if ok else 'MISS'}] hunyuan {name:16} {h['paths'][name]}")
+        label = "OK " if ok else "MISS"
+        suffix = ""
+        if name in h.get("min_bytes", {}):
+            have = h.get("sizes", {}).get(name, 0)
+            need = h["min_bytes"][name]
+            suffix = f" ({have/1_000_000_000:.2f}GB/{need/1_000_000_000:.2f}GB)"
+        print(f"[{label}] hunyuan {name:16} {h['paths'][name]}{suffix}")
     ap = autopost.status()
     print(f"[OK ] autopost mode -> {ap['mode']} (webhook={'yes' if ap['webhook_configured'] else 'no'})")
     print("\nNote: missing optional services degrade gracefully to fallbacks,")

@@ -18,8 +18,9 @@ import logging
 from pathlib import Path
 from .common import (config, db, bus, supervisor, qwen_client, kokoro_tts,
                      whisper_timing, subtitles, music, ffmpeg_build, hunyuan_video,
-                     workflow_card)
+                     workflow_card, quality)
 from .common.image_gen import generate_images
+from .common.quality import visual_qa as _visual_qa
 
 log = logging.getLogger("pipeline_a")
 _hunyuan_breaker = supervisor.CircuitBreaker("hunyuan", threshold=2, cooldown=60)
@@ -53,7 +54,8 @@ def produce(topic: str, draft_id: int | None = None, visual_source: str = "auto"
             job_id: str | None = None) -> dict:
     bus.init()
     log.info("[A] topic=%s source=%s", topic, visual_source)
-    spec = qwen_client.script_for_topic(topic)
+    spec = quality.autofix_script_spec(qwen_client.script_for_topic(topic), topic)
+    script_quality = quality.score_script_spec(spec)
     if draft_id is None:
         draft_id = db.add_draft("A", topic, spec["category"], spec["title"], spec["full_script"])
 
@@ -61,6 +63,7 @@ def produce(topic: str, draft_id: int | None = None, visual_source: str = "auto"
                                     "visual_source": visual_source}, job_id=job_id)
     job = bus.get_job(job_id)
     bus.set_status(job_id, "running")
+    bus.emit(job_id, "quality", "script_scored", f"score={script_quality['score']}")
     work = config.OUTPUT / f"A_{draft_id}"
     work.mkdir(parents=True, exist_ok=True)
 
@@ -115,10 +118,16 @@ def produce(topic: str, draft_id: int | None = None, visual_source: str = "auto"
         # --- Reproducible workflow card (takeaway #1: ship the assets) ---
         spec["topic"] = topic
         try:
-            workflow_card.write_card(draft_id, "A", spec, voice=voice,
-                                     visual_source=visual_source, video_path=out)
+            card_path = workflow_card.write_card(draft_id, "A", spec, voice=voice,
+                                                 visual_source=visual_source, video_path=out)
         except Exception as e:
+            card_path = None
             bus.emit(job_id, "workflow_card", "stage_error", repr(e))
+
+        export_quality = quality.validate_export(out, card_path)
+        report_path = quality.write_quality_report(out, script_quality, export_quality)
+        bus.emit(job_id, "quality", "export_scored",
+                 f"score={export_quality['score']} report={report_path.name}")
 
         bus.set_status(job_id, "done", result={"video": str(out)})
 
@@ -138,18 +147,6 @@ def produce(topic: str, draft_id: int | None = None, visual_source: str = "auto"
         db.update_draft(draft_id, status="failed")
         log.exception("[A] job %s quarantined", job_id)
         raise
-
-
-def _visual_qa(video: Path, target_dur: float) -> tuple[bool, str]:
-    """Pass if the export exists and its duration is within 15% of the voiceover."""
-    if not Path(video).exists():
-        return False, "no output file"
-    d = ffmpeg_build.probe_duration(video)
-    if d <= 0.5:
-        return False, "zero-length output"
-    if target_dur and abs(d - target_dur) / target_dur > 0.15:
-        return False, f"duration {d:.1f}s off target {target_dur:.1f}s"
-    return True, f"ok ({d:.1f}s)"
 
 
 if __name__ == "__main__":

@@ -30,9 +30,10 @@ QWEN_BASE_URL = os.getenv("QWEN_BASE_URL", "http://localhost:11434/v1")
 QWEN_API_KEY = os.getenv("QWEN_API_KEY", "ollama")
 QWEN_MODEL = os.getenv("QWEN_MODEL", "qwen2.5:7b-instruct")
 
-# ---- APIs ----
-PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
-PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY", "")
+# ---- APIs ---- (support both documented and internal env var names)
+PEXELS_API_KEY  = os.getenv("PEXELS_KEY")  or os.getenv("PEXELS_API_KEY",  "")
+PIXABAY_API_KEY = os.getenv("PIXABAY_KEY") or os.getenv("PIXABAY_API_KEY", "")
+ARCHIVE_MEDIA_ENABLED = os.getenv("ARCHIVE_MEDIA_ENABLED", "0").lower() in ("1", "true", "yes")
 
 # ---- Discord ----
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN", "")

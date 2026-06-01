@@ -121,20 +121,40 @@ def _regenerate_job(draft_id: int) -> str:
 class Handler(BaseHTTPRequestHandler):
     server_version = "ReelPipeline/1.0"
 
-    def _send(self, code: int, body: bytes, ctype="application/json"):
+    def _send(self, code: int, body: bytes, ctype="application/json", *, head_only: bool = False):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Access-Control-Allow-Origin", config.CORS_ORIGIN)
         self.send_header("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        if not head_only:
+            self.wfile.write(body)
 
     def _json(self, obj, code=200):
         self._send(code, json.dumps(obj).encode())
 
     def do_OPTIONS(self):
         self._send(204, b"")
+
+    def do_HEAD(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+        try:
+            if path in ("/", "/index.html"):
+                return self._file(DASH / "index.html", head_only=True)
+            if path.startswith("/dashboard/"):
+                return self._file(ROOT / path.lstrip("/"), head_only=True)
+            if path.startswith("/media/"):
+                return self._media_file(path, head_only=True)
+            if path.startswith("/api/"):
+                # Health checks and proxies commonly issue HEAD before GET.
+                return self._send(200, b"", "application/json", head_only=True)
+            return self._send(404, b"", "application/json", head_only=True)
+        except Exception as e:
+            log.exception("HEAD %s", path)
+            body = json.dumps({"error": repr(e)}).encode()
+            self._send(500, body, "application/json", head_only=True)
 
     def log_message(self, *a):  # quiet
         pass
@@ -162,20 +182,20 @@ class Handler(BaseHTTPRequestHandler):
             log.exception("GET %s", path)
             self._json({"error": repr(e)}, 500)
 
-    def _file(self, p: Path):
+    def _file(self, p: Path, *, head_only: bool = False):
         if not p.exists():
             return self._json({"error": "not found"}, 404)
         ctype = mimetypes.guess_type(str(p))[0] or "application/octet-stream"
-        self._send(200, p.read_bytes(), ctype)
+        self._send(200, p.read_bytes(), ctype, head_only=head_only)
 
-    def _media_file(self, path: str):
+    def _media_file(self, path: str, *, head_only: bool = False):
         rel = unquote(path.removeprefix("/media/"))
         p = (ROOT / rel).resolve()
         try:
             p.relative_to(ROOT.resolve())
         except ValueError:
             return self._json({"error": "not found"}, 404)
-        return self._file(p)
+        return self._file(p, head_only=head_only)
 
     def _api_get(self, path: str, query: dict[str, list[str]]):
         if path == "/api/health":

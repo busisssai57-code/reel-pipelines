@@ -5,13 +5,16 @@ content-cached by URL hash so re-runs are idempotent. Only assets with a
 confirmable free/CC/public-domain license are returned.
 """
 from __future__ import annotations
-import hashlib, logging
+import hashlib, logging, time
 from pathlib import Path
 import requests
 from . import config, db
 
 log = logging.getLogger("media")
-TIMEOUT = 30
+API_TIMEOUT = 10
+DOWNLOAD_TIMEOUT = 30
+ARCHIVE_TIMEOUT = 8
+PROVIDER_BUDGET_SECONDS = 20
 ASSETS = config.ASSETS
 
 
@@ -25,7 +28,7 @@ def _download(url: str, suffix: str) -> Path | None:
     if dest.exists() and dest.stat().st_size > 0:
         return dest
     try:
-        with requests.get(url, stream=True, timeout=TIMEOUT,
+        with requests.get(url, stream=True, timeout=DOWNLOAD_TIMEOUT,
                           headers={"User-Agent": "reel-pipeline/1.0"}) as r:
             r.raise_for_status()
             with open(dest, "wb") as f:
@@ -34,6 +37,11 @@ def _download(url: str, suffix: str) -> Path | None:
         return dest
     except Exception as e:
         log.warning("download failed %s (%s)", url, e)
+        if dest.exists():
+            try:
+                dest.unlink()
+            except OSError:
+                pass
         return None
 
 
@@ -45,7 +53,7 @@ def pexels_videos(query: str, per_page: int = 5) -> list[dict]:
         r = requests.get("https://api.pexels.com/videos/search",
                          headers={"Authorization": config.PEXELS_API_KEY},
                          params={"query": query, "per_page": per_page,
-                                 "orientation": "portrait"}, timeout=TIMEOUT)
+                                 "orientation": "portrait"}, timeout=API_TIMEOUT)
         r.raise_for_status()
         out = []
         for v in r.json().get("videos", []):
@@ -68,14 +76,19 @@ def pixabay(query: str, kind: str = "video", per_page: int = 5) -> list[dict]:
     try:
         r = requests.get(base, params={"key": config.PIXABAY_API_KEY, "q": query,
                                        "per_page": per_page, "safesearch": "true"},
-                         timeout=TIMEOUT)
+                         timeout=API_TIMEOUT)
         r.raise_for_status()
         out = []
         for hit in r.json().get("hits", []):
             if kind == "video":
-                url = hit["videos"].get("large", {}).get("url") or hit["videos"]["medium"]["url"]
+                vids = hit.get("videos") or {}
+                url = (vids.get("large") or {}).get("url") or \
+                      (vids.get("medium") or {}).get("url") or \
+                      (vids.get("small") or {}).get("url")
             else:
                 url = hit.get("largeImageURL") or hit.get("webformatURL")
+            if not url:
+                continue
             out.append({"url": url, "source": "pixabay",
                         "license": "Pixabay Content License (free, no attribution req.)",
                         "page": hit.get("pageURL", ""), "kind": "footage" if kind == "video" else "image"})
@@ -86,17 +99,19 @@ def pixabay(query: str, kind: str = "video", per_page: int = 5) -> list[dict]:
 
 # -------------------------------------------------------------- Archive.org (video)
 def archive_videos(query: str, rows: int = 5) -> list[dict]:
+    if not config.ARCHIVE_MEDIA_ENABLED:
+        return []
     try:
         r = requests.get("https://archive.org/advancedsearch.php",
                          params={"q": f'({query}) AND mediatype:movies AND '
                                       'licenseurl:(*creativecommons* OR *publicdomain*)',
                                  "fl[]": "identifier", "rows": rows, "output": "json"},
-                         timeout=TIMEOUT)
+                         timeout=ARCHIVE_TIMEOUT)
         r.raise_for_status()
         out = []
         for doc in r.json().get("response", {}).get("docs", []):
             ident = doc["identifier"]
-            meta = requests.get(f"https://archive.org/metadata/{ident}", timeout=TIMEOUT).json()
+            meta = requests.get(f"https://archive.org/metadata/{ident}", timeout=ARCHIVE_TIMEOUT).json()
             lic = meta.get("metadata", {}).get("licenseurl", "public domain / CC")
             for fobj in meta.get("files", []):
                 name = fobj.get("name", "")
@@ -115,10 +130,17 @@ def fetch_footage(keywords: list[str], draft_id: int, want: int) -> list[Path]:
     """Gather `want` footage clips across the three sources, logging licenses."""
     clips: list[Path] = []
     providers = []
-    for kw in keywords:
+    start = time.monotonic()
+    for kw in keywords[:4]:
+        if time.monotonic() - start > PROVIDER_BUDGET_SECONDS:
+            log.warning("media provider budget exhausted; falling back to generated visuals")
+            break
         providers += pexels_videos(kw, 3) + pixabay(kw, "video", 3) + archive_videos(kw, 2)
     seen = set()
     for cand in providers:
+        if time.monotonic() - start > PROVIDER_BUDGET_SECONDS:
+            log.warning("download budget exhausted; using %d fetched clips", len(clips))
+            break
         if len(clips) >= want:
             break
         if cand["url"] in seen:

@@ -300,12 +300,13 @@ function viewDash(){const A=counts("A"),B=counts("B");
   <div class="panel" style="margin-top:var(--s5)"><div class="pl-head"><strong>Trace stream</strong><button class="btn" id="refreshTelemetry">Refresh</button></div>${activityList()}</div>`}
 
 let curPl="A";
-function viewQueue(){const list=DB[curPl];
+function viewQueue(){const list=DB[curPl].filter(d=>d.status==="pending");
   return `<h1>Review queue</h1><div class="qbar"><div class="seg" role="group" aria-label="Pipeline">
    <button data-pl="A" aria-pressed="${curPl==="A"}">Pipeline A · ${counts("A").pending}⏳</button>
    <button data-pl="B" aria-pressed="${curPl==="B"}">Pipeline B · ${counts("B").pending}⏳</button></div>
-   <span class="muted">${list.length} drafts · ${REAL_DRAFTS?"live from state.db":"demo data"} · poster-first, tap ▶ to stream</span></div>
-   <div class="grid">${list.map(card).join("")}</div>`}
+   <span class="muted">${list.length} pending drafts · ${REAL_DRAFTS?"live from state.db":"demo data"} · poster-first, tap ▶ to stream</span></div>
+   ${list.length?`<div class="grid">${list.map(card).join("")}</div>`:
+   `<div class="panel"><strong>No pending ${curPl} drafts.</strong><p class="muted">Approved, published, failed, and rejected drafts stay out of the review queue. Use Render Studio or Batch to create more.</p></div>`}`}
 function statusHtml(d){if(d.status==="approved")return `✅ Scheduled ${esc(d.slot||"next slot")}`;
   if(d.status==="rejected")return "❌ Rejected — replaced";
   if(d.status==="failed")return "⚠ Failed — retry from Render Studio";
@@ -414,7 +415,7 @@ function viewSettings(){return `<h1>Settings</h1><div class="cards">
      <div class="field" style="margin-top:var(--s3)"><label for="apiUrl">Backend URL</label><input id="apiUrl" value="${API}" placeholder="http://127.0.0.1:8787  or  https://your-tunnel.trycloudflare.com"></div>
      <div class="field"><label for="apiKey">API key (optional)</label><input id="apiKey" value="${esc(localStorage.getItem('apiKey')||'')}" placeholder="Only needed if REEL_API_KEY is set"></div>
      <button class="btn primary" onclick="setApi(document.getElementById('apiUrl').value);setApiKey(document.getElementById('apiKey').value)">Connect</button></div>
-   <div class="panel"><strong>Auto-poster</strong><p class="muted">${autopostSummary()}</p><button class="btn" id="queueAutopost">Queue approved</button> <button class="btn primary" id="runAutopost">Run now</button></div>
+   <div class="panel"><strong>Auto-poster</strong><p class="muted">${autopostSummary()}</p><button class="btn" id="queueAutopost">Queue approved</button> <button class="btn primary" id="runAutopost">Run due now</button></div>
    <div class="panel"><strong>Licenses</strong><p class="muted">Every asset's source + license logged in state.db. All components open-source.</p></div></div>`}
 
 const VIEWS={dash:viewDash,queue:viewQueue,render:viewRender,agents:viewAgents,variants:viewVariants,episodes:viewEpisodes,sched:viewSched,settings:viewSettings};

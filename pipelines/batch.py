@@ -44,6 +44,7 @@ def generate_week(pipeline: str, n: int | None = None, week: str | None = None) 
 
 def regenerate_one(pipeline: str, rejected_topic: str, week: str | None = None) -> dict:
     """Reject loop: produce a fresh proposition draft to refill a slot."""
+    db.init()
     week = week or iso_week()
     new_topic = qwen_client.new_proposition(pipeline, rejected_topic)
     res = _produce(pipeline, new_topic)
@@ -53,4 +54,8 @@ def regenerate_one(pipeline: str, rejected_topic: str, week: str | None = None) 
 
 
 def generate_all_weeks() -> dict:
-    return {"A": generate_week("A"), "B": generate_week("B")}
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        fut_a = ex.submit(generate_week, "A")
+        fut_b = ex.submit(generate_week, "B")
+        return {"A": fut_a.result(), "B": fut_b.result()}

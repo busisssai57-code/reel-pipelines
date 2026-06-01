@@ -28,9 +28,10 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # ----------------------------------------------------------- scheduling slots
 def _next_slot(week: str, taken: int) -> dt.datetime:
     """Spread approved reels across the week, one per day at PUBLISH_HOUR."""
-    monday = dt.datetime.strptime(week + "-1", "%Y-W%W-%w")
-    return monday.replace(hour=PUBLISH_HOUR, minute=0) + dt.timedelta(days=taken % 7,
-                                                                      hours=(taken // 7))
+    year, wnum = int(week[:4]), int(week[6:])
+    monday = dt.date.fromisocalendar(year, wnum, 1)
+    base = dt.datetime(monday.year, monday.month, monday.day, PUBLISH_HOUR, 0)
+    return base + dt.timedelta(days=taken % 7, hours=taken // 7)
 
 
 # ----------------------------------------------------------- UI
@@ -116,6 +117,9 @@ async def post_week(channel=None):
 async def on_ready():
     db.init()
     log.info("Bot online as %s", bot.user)
+    # Re-register persistent views for all pending drafts so buttons remain interactive after restart
+    for d in db.drafts_by_status("A", "pending") + db.drafts_by_status("B", "pending"):
+        bot.add_view(ReviewView(d["id"]))
     sched = AsyncIOScheduler()
     # Monday 08:00 local: deliver the weekly review
     sched.add_job(lambda: asyncio.create_task(post_week()),

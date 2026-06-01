@@ -11,15 +11,16 @@ from . import config, db
 
 log = logging.getLogger("kokoro")
 SAMPLE_RATE = 24000
-_pipeline = None
+_pipelines: dict[str, "KPipeline"] = {}
 
 
-def _get_pipeline():
-    global _pipeline
-    if _pipeline is None:
+def _get_pipeline(lang_code: str = "a"):
+    """Lazily load and cache Kokoro model per language code."""
+    global _pipelines
+    if lang_code not in _pipelines:
         from kokoro import KPipeline  # lazy import
-        _pipeline = KPipeline(lang_code="a")  # 'a' = American English; 'b' = British
-    return _pipeline
+        _pipelines[lang_code] = KPipeline(lang_code=lang_code)
+    return _pipelines[lang_code]
 
 
 def pick_voice(rotate: bool, explicit: str | None = None) -> str:
@@ -42,8 +43,8 @@ def synthesize(text: str, out_wav: Path, rotate: bool = False,
     out_wav.parent.mkdir(parents=True, exist_ok=True)
     chosen = pick_voice(rotate, voice)
     try:
-        from kokoro import KPipeline  # noqa
-        pipe = KPipeline(lang_code=_lang_for_voice(chosen))
+        lang_code = _lang_for_voice(chosen)
+        pipe = _get_pipeline(lang_code)
         chunks = []
         for _, _, audio in pipe(text, voice=chosen, speed=1.0):
             chunks.append(np.asarray(audio, dtype=np.float32))

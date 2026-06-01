@@ -65,8 +65,11 @@ class TriggerAgent(Agent):
 
     def handle(self, event):
         p = event.get("data") or {}
-        job_id = bus.new_job("reel_A", {"topic": p.get("topic", ""),
-                                        "visual_source": p.get("visual_source", "auto")})
+        pipeline = (p.get("pipeline") or "A").upper()
+        kind = "reel_A" if pipeline == "A" else "reel_B"
+        job_id = bus.new_job(kind, {"topic": p.get("topic", ""),
+                                    "visual_source": p.get("visual_source", "auto"),
+                                    "pipeline": pipeline})
         bus.emit(job_id, self.name, "job_enqueued", p.get("topic", ""))
         return [{"type": "job_enqueued", "job_id": job_id}]
 
@@ -180,20 +183,13 @@ def default_agents() -> list[Agent]:
             AutoPostAgent(), VariantGenAgent(), EpisodesAgent()]
 
 
-def _iso_week(d: dt.date | None = None) -> str:
-    d = d or dt.date.today(); y, w, _ = d.isocalendar(); return f"{y}-W{w:02d}"
-
-
-def _monday(week: str) -> dt.datetime:
-    return dt.datetime.strptime(week + "-1", "%Y-W%W-%w")
-
-
 # module-level singleton runner (created on import for convenience)
+_runner = None
+
+
 def get_runner() -> AgentRunner:
     global _runner
-    try:
-        return _runner
-    except NameError:
+    if _runner is None:
         bus.init()
         _runner = AgentRunner()
-        return _runner
+    return _runner

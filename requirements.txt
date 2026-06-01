@@ -13,6 +13,9 @@ faster-whisper>=1.0.3   # word-level timestamps (falls back to openai-whisper if
 # --- Media acquisition (free/CC public APIs) ---
 requests>=2.32.0
 
+# --- Local procedural visuals ---
+pillow>=10.4.0
+
 # --- Discord approval loop + scheduler ---
 discord.py>=2.4.0
 APScheduler>=3.10.4

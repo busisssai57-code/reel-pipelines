@@ -24,10 +24,18 @@ ENGINE_NAME = "Hunyuan Video"
 LIPSYNC_MODEL = config.LIPSYNC_MODEL
 _PROBE_TTL = 15.0
 _probe_cache = {"t": 0.0, "ok": False}
+MIN_BYTES = {
+    "diffusion_model": 25_000_000_000,
+    "vae": 400_000_000,
+    "clip": 200_000_000,
+    "llm": 8_500_000_000,
+}
 
 
 def is_available() -> bool:
-    """True only if the ComfyUI/Hunyuan Video backend is reachable. Cached briefly."""
+    """True only if ComfyUI is reachable and required model files are complete."""
+    if not models_ready():
+        return False
     now = time.time()
     if now - _probe_cache["t"] < _PROBE_TTL:
         return _probe_cache["ok"]
@@ -51,14 +59,37 @@ def health() -> dict:
         "clip": config.COMFY_ROOT / "models" / "text_encoders" / config.HUNYUAN_CLIP,
         "llm": config.COMFY_ROOT / "models" / "text_encoders" / config.HUNYUAN_LLM,
     }
+    installed = {k: _file_complete(k, Path(v)) for k, v in paths.items()}
+    sizes = {k: (Path(v).stat().st_size if Path(v).is_file() else 0) for k, v in paths.items()}
     return {
         "engine": ENGINE_NAME,
         "comfy_url": COMFY_URL,
         "available": is_available(),
+        "models_ready": all(installed.values()),
         "lip_sync_model": LIPSYNC_MODEL,
         "paths": {k: str(v) for k, v in paths.items()},
-        "installed": {k: Path(v).exists() for k, v in paths.items()},
+        "installed": installed,
+        "sizes": sizes,
+        "min_bytes": MIN_BYTES,
     }
+
+
+def models_ready() -> bool:
+    paths = {
+        "comfy_root": config.COMFY_ROOT,
+        "workflow": Path(config.HUNYUAN_WORKFLOW),
+        "diffusion_model": config.COMFY_ROOT / "models" / "diffusion_models" / config.HUNYUAN_MODEL,
+        "vae": config.COMFY_ROOT / "models" / "vae" / config.HUNYUAN_VAE,
+        "clip": config.COMFY_ROOT / "models" / "text_encoders" / config.HUNYUAN_CLIP,
+        "llm": config.COMFY_ROOT / "models" / "text_encoders" / config.HUNYUAN_LLM,
+    }
+    return all(_file_complete(k, Path(v)) for k, v in paths.items())
+
+
+def _file_complete(name: str, path: Path) -> bool:
+    if name not in MIN_BYTES:
+        return path.exists()
+    return path.is_file() and path.stat().st_size >= MIN_BYTES[name]
 
 
 def render(prompt: str, *, seconds: float = 4.0, fps: int = config.FPS,
@@ -97,7 +128,7 @@ def lipsync(video: Path, audio: Path, actor: str | None = None,
     video, audio = Path(video), Path(audio)
     if not LIPSYNC_MODEL or not is_available():
         bus.emit(job_id, "hunyuan", "degraded",
-                 "lip-sync model not configured ([FILL: open lip-sync model])")
+                 "lip-sync model not configured (enable via LIPSYNC_MODEL env var)")
         return video
     bus.emit(job_id, "hunyuan", "lipsync_start", f"model={LIPSYNC_MODEL}")
     workflow = _build_lipsync_workflow(video, audio, LIPSYNC_MODEL)
@@ -147,7 +178,56 @@ def _build_workflow(prompt, frames, fps, w, h, seed, steps) -> dict:
 
 
 def _build_lipsync_workflow(video: Path, audio: Path, model: str) -> dict:
-    return {"_lipsync": model, "video": str(video), "audio": str(audio)}
+    """Build a ComfyUI API-format workflow for LatentSync lip-sync.
+
+    Node layout:
+      1  VHS_LoadVideo          <- video path
+      2  VHS_LoadAudio          <- audio path
+      3  LatentSyncNode         <- model, video (1), audio (2)
+      4  VHS_VideoCombine       <- output from (3), saves mp4
+    """
+    return {
+        "1": {
+            "class_type": "VHS_LoadVideo",
+            "inputs": {
+                "video": str(video),
+                "force_rate": 0,
+                "force_size": "Disabled",
+                "custom_width": 512,
+                "custom_height": 512,
+                "frame_load_cap": 0,
+                "skip_first_frames": 0,
+                "select_every_nth": 1,
+            },
+        },
+        "2": {
+            "class_type": "VHS_LoadAudio",
+            "inputs": {"audio_file": str(audio), "seek_seconds": 0.0},
+        },
+        "3": {
+            "class_type": "LatentSyncNode",
+            "inputs": {
+                "model": model,
+                "video": ["1", 0],
+                "audio": ["2", 0],
+                "inference_steps": 20,
+                "guidance_scale": 1.5,
+                "seed": 42,
+            },
+        },
+        "4": {
+            "class_type": "VHS_VideoCombine",
+            "inputs": {
+                "images": ["3", 0],
+                "audio": ["2", 0],
+                "frame_rate": config.FPS,
+                "loop_count": 0,
+                "filename_prefix": "lipsync_out",
+                "format": "video/h264-mp4",
+                "save_output": True,
+            },
+        },
+    }
 
 
 def _submit_and_wait(workflow: dict, *, progress_cb=None, job_id=None,

@@ -85,7 +85,9 @@ def emit(job_id: str | None, agent: str, type_: str, note: str = "", data: dict 
                   (job_id, agent, type_, note, json.dumps(data) if data else None, time.time()))
     log.debug("[%s] %s/%s %s", job_id, agent, type_, note)
     # fan out to in-proc subscribers (synchronous, best-effort)
-    for cb in _subscribers.get(type_, []) + _subscribers.get("*", []):
+    with _lock:
+        cbs = list(_subscribers.get(type_, [])) + list(_subscribers.get("*", []))
+    for cb in cbs:
         try:
             cb({"job_id": job_id, "agent": agent, "type": type_, "note": note, "data": data})
         except Exception:

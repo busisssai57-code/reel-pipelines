@@ -12,6 +12,7 @@ Examples:
 """
 from __future__ import annotations
 import argparse, logging, sys
+from pathlib import Path
 
 
 def main():
@@ -29,6 +30,9 @@ def main():
     pserve = sub.add_parser("serve")
     pserve.add_argument("--port", type=int, default=8787)
     pserve.add_argument("--no-open", action="store_true", help="don't open the browser")
+    pval = sub.add_parser("validate")
+    pval.add_argument("video", help="rendered MP4 to inspect")
+    pval.add_argument("--workflow", help="optional workflow card path")
     sub.add_parser("check")
 
     args = ap.parse_args()
@@ -58,9 +62,14 @@ def main():
         if not args.no_open:
             threading.Timer(1.2, lambda: webbrowser.open(url)).start()
         print(f"Opening the Studio at {url}  (same-origin: real renders, no mixed-content)")
-        from pipelines import __init__  # ensure package importable
+        import pipelines  # ensure package importable
         import server
         server.main(args.port)
+    elif args.cmd == "validate":
+        from pipelines.common import quality
+        report = quality.validate_export(Path(args.video), Path(args.workflow) if args.workflow else None)
+        print(report)
+        sys.exit(0 if report["passed"] else 2)
     elif args.cmd == "check":
         import check_env
         check_env.main()
