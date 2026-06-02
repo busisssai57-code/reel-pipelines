@@ -12,7 +12,7 @@
 
   import { startLive, stopLive, refreshNow } from '$lib/stores/live';
   import { toasts } from '$lib/stores/toast';
-  import { prefersReducedMotion, d } from '$lib/motion';
+  import { reduceMotion, d } from '$lib/motion';
 
   import Brand from '$lib/components/Brand.svelte';
   import Icon from '$lib/components/Icon.svelte';
@@ -46,7 +46,7 @@
 
   // T1 — route-level View Transitions (graceful no-op without support / reduced motion).
   onNavigate((navigation) => {
-    if (!document.startViewTransition || get(prefersReducedMotion)) return;
+    if (!document.startViewTransition || get(reduceMotion)) return;
     return new Promise<void>((resolve) => {
       document.startViewTransition(async () => {
         resolve();

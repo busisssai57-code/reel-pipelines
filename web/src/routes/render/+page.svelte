@@ -15,6 +15,7 @@
   let status = $state<'idle' | 'starting' | 'running' | 'done' | 'failed'>('idle');
   let evs = $state<BusEvent[]>([]);
   let timer: ReturnType<typeof setInterval> | null = null;
+  let destroyed = false;
 
   const pct = tweened(0, { duration: d(500), easing: cubicOut });
 
@@ -52,12 +53,13 @@
   });
 
   function stop() { if (timer) clearInterval(timer); timer = null; }
-  onDestroy(stop);
+  onDestroy(() => { destroyed = true; stop(); });
 
   async function start() {
     if (!topic.trim()) { toast('Please enter a topic', 'error'); return; }
     status = 'starting';
     const r = await api.startRender(topic.trim(), source);
+    if (destroyed) return; // unmounted during the await — don't start an orphan poll
     if (r?.job_id) {
       jobId = r.job_id; status = 'running'; evs = [];
       toast(`Producing: ${topic.trim()}`, 'success');
@@ -71,12 +73,26 @@
   async function poll() {
     if (!jobId) return;
     const res = await api.renderEvents(jobId);
-    evs = res.events || [];
-    const st = (res.job?.status as typeof status) || 'running';
-    if (st === 'done' || st === 'failed') {
-      status = st; stop();
-      toast(st === 'done' ? 'Render complete' : 'Render failed', st === 'done' ? 'success' : 'error');
-    }
+    // Only replace the feed when the backend actually returned events; on a
+    // transient failure renderEvents() yields {} (no `events`), and blanking
+    // the timeline every failed poll would make it flicker.
+    if (Array.isArray(res.events)) evs = res.events;
+    const st = (res.job?.status || 'running').toLowerCase();
+    // Keep polling only while the backend still considers the job in-flight;
+    // every other status (done/failed/canceled/degraded/quarantined — see
+    // jobs.status in pipelines/common/bus.py) is terminal and must stop the poll.
+    if (st === 'queued' || st === 'running') return;
+    stop();
+    const ok = st === 'done' || st === 'degraded';
+    status = ok ? 'done' : 'failed';
+    toast(
+      st === 'done' ? 'Render complete'
+      : st === 'degraded' ? 'Render complete (with fallbacks)'
+      : st === 'canceled' ? 'Render canceled'
+      : st === 'quarantined' ? 'Render quarantined for review'
+      : 'Render failed',
+      ok ? 'success' : 'error'
+    );
   }
 
   const R = 86;
