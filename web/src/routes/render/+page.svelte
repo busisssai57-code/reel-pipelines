@@ -73,7 +73,10 @@
   async function poll() {
     if (!jobId) return;
     const res = await api.renderEvents(jobId);
-    evs = res.events || [];
+    // Only replace the feed when the backend actually returned events; on a
+    // transient failure renderEvents() yields {} (no `events`), and blanking
+    // the timeline every failed poll would make it flicker.
+    if (Array.isArray(res.events)) evs = res.events;
     const st = (res.job?.status || 'running').toLowerCase();
     // Keep polling only while the backend still considers the job in-flight;
     // every other status (done/failed/canceled/degraded/quarantined — see
