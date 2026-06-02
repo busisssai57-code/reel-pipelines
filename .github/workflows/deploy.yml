@@ -1,11 +1,11 @@
-name: Deploy Dashboard to GitHub Pages
+name: Deploy Reel Studio (web) to GitHub Pages
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'dashboard/**'
+      - 'web/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
@@ -25,13 +25,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # No committed lockfile (package-lock.json is gitignored) -> use install, not ci.
+      - name: Install dependencies
+        working-directory: web
+        run: npm install
+
+      # GitHub Pages serves this repo at /reel-pipelines, so build with that base.
+      # adapter-static emits index.html as the SPA fallback; GitHub Pages routes
+      # unknown paths through 404.html, so mirror it for client-side routing.
+      - name: Build
+        working-directory: web
+        env:
+          BASE_PATH: /reel-pipelines
+        run: |
+          npm run build
+          cp build/index.html build/404.html
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'dashboard'
+          path: 'web/build'
 
   deploy:
     environment:
