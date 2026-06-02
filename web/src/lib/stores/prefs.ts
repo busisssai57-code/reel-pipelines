@@ -17,25 +17,26 @@ function persisted<T>(key: string, initial: T): Writable<T> {
   return store;
 }
 
-export type Theme = 'auto' | 'light' | 'dark';
+export type Theme = 'aurum' | 'auto' | 'light' | 'dark';
 
 // Theme is stored as a bare string (the no-flash script in app.html reads it
 // directly), so use a small bespoke store rather than JSON.
 function themeStore(): Writable<Theme> {
-  let start: Theme = 'auto';
+  let start: Theme = 'aurum';
   try {
     const raw = localStorage.getItem('reel.theme') as Theme | null;
-    if (raw === 'auto' || raw === 'light' || raw === 'dark') start = raw;
+    if (raw === 'aurum' || raw === 'auto' || raw === 'light' || raw === 'dark') start = raw;
   } catch { /* ignore */ }
 
   const store = writable<Theme>(start);
   store.subscribe((v) => {
     try {
       localStorage.setItem('reel.theme', v);
-      const dark =
-        v === 'dark' ||
-        (v === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      const resolved =
+        v === 'aurum' ? 'aurum'
+        : v === 'dark' || (v === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark'
+        : 'light';
+      document.documentElement.dataset.theme = resolved;
     } catch { /* ignore */ }
   });
   return store;

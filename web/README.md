@@ -60,8 +60,9 @@ src/
     api.ts              REST client (baseUrl override)
     stream.ts           SSE client + polling fallback (SSE dormant until P1)
     stores/             live (shared poller), prefs (theme), toast
-    components/         Icon, Brand, StatCard, SyncChip, AgentCard,
-                        EventFeed, DraftCard, ThemeToggle, Skeleton, Placeholder
+    components/         Icon, Brand, StatCard, SyncChip, AgentTile, SystemVitals,
+                        StatusRing, Sparkline, Gauge, EventFeed, DraftCard,
+                        ThemeToggle, Skeleton, Placeholder
   routes/               +layout (AppShell) + 11 views
 static/                 favicon, manifest, _redirects (CF SPA fallback)
 ```

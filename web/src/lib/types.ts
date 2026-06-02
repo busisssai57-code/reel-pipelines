@@ -15,6 +15,7 @@ export interface Agent {
   last_action?: LastAction | null;
   waits_for?: string;
   circuit_open?: boolean;
+  score?: number; // outcome score (0..1) from priors; exposed by /api/agents when available
 }
 
 export interface Draft {
