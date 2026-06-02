@@ -15,6 +15,7 @@
   let status = $state<'idle' | 'starting' | 'running' | 'done' | 'failed'>('idle');
   let evs = $state<BusEvent[]>([]);
   let timer: ReturnType<typeof setInterval> | null = null;
+  let destroyed = false;
 
   const pct = tweened(0, { duration: d(500), easing: cubicOut });
 
@@ -52,12 +53,13 @@
   });
 
   function stop() { if (timer) clearInterval(timer); timer = null; }
-  onDestroy(stop);
+  onDestroy(() => { destroyed = true; stop(); });
 
   async function start() {
     if (!topic.trim()) { toast('Please enter a topic', 'error'); return; }
     status = 'starting';
     const r = await api.startRender(topic.trim(), source);
+    if (destroyed) return; // unmounted during the await — don't start an orphan poll
     if (r?.job_id) {
       jobId = r.job_id; status = 'running'; evs = [];
       toast(`Producing: ${topic.trim()}`, 'success');

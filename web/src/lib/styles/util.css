@@ -90,3 +90,15 @@
 .section-title { font-size: var(--t-title3); font-weight: 650; margin: var(--sp-6) 0 var(--sp-3); }
 .section-title:first-child { margin-top: 0; }
 .empty { color: var(--label-2); padding: var(--sp-4); }
+
+/* App-level reduced-motion override (Settings). Mirrors the OS @media guard in
+   tokens.css but keys off <html data-reduce-motion> (set in lib/motion.ts), so
+   the in-app toggle works even when the OS setting is off. */
+[data-reduce-motion] *,
+[data-reduce-motion] *::before,
+[data-reduce-motion] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

@@ -120,7 +120,13 @@ export function startLive(): void {
       }
     },
     () => { /* SSE unsupported: stay on the fast poll */ }
-  ).then((h) => { sse = h; });
+  ).then((h) => {
+    // If stopLive() ran while connectStream was still awaiting, close the
+    // freshly opened connection instead of leaking it (started is cleared by
+    // stopLive, so a live handle here would otherwise be unreachable).
+    if (started) sse = h;
+    else h.close();
+  });
 }
 
 export function stopLive(): void {
