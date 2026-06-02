@@ -2,9 +2,9 @@
   import { theme, type Theme } from '$lib/stores/prefs';
   import Icon from './Icon.svelte';
 
-  const order: Theme[] = ['auto', 'light', 'dark'];
-  const icon: Record<Theme, string> = { auto: 'auto', light: 'sun', dark: 'moon' };
-  const label: Record<Theme, string> = { auto: 'Theme: Auto', light: 'Theme: Light', dark: 'Theme: Dark' };
+  const order: Theme[] = ['aurum', 'auto', 'light', 'dark'];
+  const icon: Record<Theme, string> = { aurum: 'bolt', auto: 'auto', light: 'sun', dark: 'moon' };
+  const label: Record<Theme, string> = { aurum: 'Theme: Aurum', auto: 'Theme: Auto', light: 'Theme: Light', dark: 'Theme: Dark' };
 
   function cycle() {
     theme.update((t) => order[(order.indexOf(t) + 1) % order.length]);

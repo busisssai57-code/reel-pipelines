@@ -4,6 +4,7 @@
   import { toast } from '$lib/stores/toast';
 
   const themes: { v: Theme; label: string }[] = [
+    { v: 'aurum', label: 'Aurum' },
     { v: 'auto', label: 'Auto' },
     { v: 'light', label: 'Light' },
     { v: 'dark', label: 'Dark' }

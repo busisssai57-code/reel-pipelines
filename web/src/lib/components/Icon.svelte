@@ -21,7 +21,10 @@
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
     chevron: '<path d="M9 6l6 6-6 6"/>',
     more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
-    bolt: '<path d="M13 2L4 14h6l-1 8 9-12h-6z"/>'
+    bolt: '<path d="M13 2L4 14h6l-1 8 9-12h-6z"/>',
+    pulse: '<path d="M2 12h3l2-5 3 10 2-7 1.5 4H22"/>',
+    gauge: '<path d="M5 18a7 7 0 1 1 14 0"/><path d="M12 18l3.5-4.5"/><circle cx="12" cy="18" r="1.1" fill="currentColor" stroke="none"/>',
+    orbit: '<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="4.4"/><ellipse cx="12" cy="12" rx="10" ry="4.4" transform="rotate(60 12 12)"/>'
   };
 </script>
 

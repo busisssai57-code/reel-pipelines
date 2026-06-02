@@ -62,6 +62,13 @@
   --material-blur: blur(20px) saturate(180%);
   --e-1: 0 1px 2px rgba(0, 0, 0, .06), 0 4px 16px rgba(0, 0, 0, .06);
   --e-2: 0 4px 12px rgba(0, 0, 0, .10), 0 16px 48px rgba(0, 0, 0, .12);
+
+  /* Signature gold (Aurum). Darker on light backgrounds for AA text contrast. */
+  --gold: #b8860b;
+  --gold-ink: #8a6d1c;
+  --gold-edge: rgba(184, 134, 11, .22);
+  --gold-grad: linear-gradient(135deg, #d9b44a, #b8860b);
+  --e-gold: 0 0 0 1px var(--gold-edge), 0 10px 40px rgba(184, 134, 11, .08);
 }
 
 /* No-JS adaptive dark */
@@ -104,6 +111,44 @@
   --fill-2: rgba(120, 120, 128, .16); --material: color-mix(in srgb, var(--surface) 72%, transparent);
   --e-1: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 20px rgba(0, 0, 0, .35);
   --e-2: 0 6px 18px rgba(0, 0, 0, .5), 0 24px 60px rgba(0, 0, 0, .5);
+  --gold: #e8b23a; --gold-ink: #f2c95b; --gold-edge: rgba(232, 178, 58, .22);
+  --gold-grad: linear-gradient(135deg, #f6d67a, #e8b23a 45%, #c8902a);
+  --e-gold: 0 0 0 1px var(--gold-edge), 0 10px 40px rgba(232, 178, 58, .10);
+}
+
+/* ---- Aurum (premium black + gold) — default theme ----
+   Black canvas + white type + one signature colour (gold). The 6 brand colours
+   are semantic: gold=approved/signature, blue=interactive, red=fail/live,
+   orange=in-progress. No green in the palette -> --success is remapped to gold;
+   status is never colour-only (always icon + label). */
+[data-theme="aurum"] {
+  --bg: #000000;
+  --surface: #131316;
+  --surface-2: #1c1c20;
+  --label: rgba(255, 255, 255, .92);
+  --label-2: rgba(255, 255, 255, .58);
+  --label-3: rgba(255, 255, 255, .38);
+  --separator: rgba(255, 255, 255, .10);
+  --accent: #0a84ff;
+  --accent-ink: #ffffff;
+  --gold: #e8b23a;
+  --gold-ink: #f2c95b;
+  --gold-edge: rgba(232, 178, 58, .22);
+  --gold-grad: linear-gradient(135deg, #f6d67a, #e8b23a 45%, #c8902a);
+  --success: #e8b23a;   /* approved / healthy -> gold */
+  --warning: #ff9f0a;   /* in-progress / healing */
+  --danger: #ff453a;    /* failed / live */
+  --fill: rgba(255, 255, 255, .10);
+  --fill-2: rgba(255, 255, 255, .06);
+  --c-history: #3b6ea5;
+  --c-geography: #3a8f63;
+  --c-science: #b5483f;
+  --c-default: #5b6472;
+  --material: color-mix(in srgb, var(--surface) 64%, transparent);
+  --material-blur: blur(24px) saturate(180%);
+  --e-1: 0 1px 2px rgba(0, 0, 0, .5), 0 8px 24px rgba(0, 0, 0, .45);
+  --e-2: 0 8px 24px rgba(0, 0, 0, .55), 0 28px 64px rgba(0, 0, 0, .6);
+  --e-gold: 0 0 0 1px var(--gold-edge), 0 10px 40px rgba(232, 178, 58, .10);
 }
 
 /* ---- Base / reset ---- */
