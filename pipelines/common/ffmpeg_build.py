@@ -18,14 +18,17 @@ class FFmpegMissing(RuntimeError):
     """Raised when the ffmpeg/ffprobe binary is not on PATH."""
 
 
-def _run(args: list[str]):
+def _run(args: list[str], timeout: float | None = 600):
     log.debug("ffmpeg %s", " ".join(str(a) for a in args))
     try:
         p = subprocess.run([config.FFMPEG, "-y", "-hide_banner", "-loglevel", "error", *map(str, args)],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, timeout=timeout)
     except FileNotFoundError:
         raise FFmpegMissing(f"FFmpeg binary '{config.FFMPEG}' not found on PATH "
                             "(install Gyan.FFmpeg)")
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"ffmpeg timed out after {timeout}s (process killed); args: "
+                           f"{' '.join(str(a) for a in args[:8])} ...")
     if p.returncode != 0:
         raise RuntimeError(f"ffmpeg failed:\n{p.stderr[-2000:]}")
 
@@ -35,7 +38,7 @@ def probe_duration(path: Path) -> float:
     try:
         p = subprocess.run([config.FFPROBE, "-v", "error", "-show_entries",
                             "format=duration", "-of", "json", str(path)],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, timeout=30)
         return float(json.loads(p.stdout)["format"]["duration"])
     except FileNotFoundError:
         log.warning("ffprobe '%s' not found on PATH; treating duration as unknown", config.FFPROBE)
@@ -46,16 +49,26 @@ def probe_duration(path: Path) -> float:
 
 # ---------------------------------------------------------------- segments
 def kenburns_segment(img: Path, dur: float, out: Path) -> Path:
-    """Render a still image to video with subtle zoom-in (Ken Burns) effect."""
+    """Render a still image to a video clip with a subtle Ken Burns zoom.
+
+    zoompan expands a SINGLE input frame into ``frames`` output frames (the zoom
+    accumulates across them), so the still is fed once and capped with
+    ``-frames:v``. It must NOT be pre-looped into ``frames`` input frames: with
+    ``-t``/looped input, zoompan emits ``d`` frames *per input frame* (frames**2),
+    ballooning a ~5s clip to ~15min and showing only the first image after the
+    export trim. A 1.5x supersample (== the max zoom) keeps the most zoomed-in
+    frame pixel-sharp without the cost of a full 2x/4K pass.
+    """
     frames = max(1, int(round(dur * FPS)))
+    sw, sh = (W * 3) // 2, (H * 3) // 2  # 1.5x supersample, even dims for yuv420p
     vf = (
-        f"scale={W*2}:{H*2}:force_original_aspect_ratio=increase,"
-        f"crop={W*2}:{H*2},"
+        f"scale={sw}:{sh}:force_original_aspect_ratio=increase,"
+        f"crop={sw}:{sh},"
         f"zoompan=z='min(zoom+0.0015,1.5)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
         f":d={frames}:s={W}x{H}:fps={FPS},"
         "setsar=1,format=yuv420p"
     )
-    _run(["-loop", "1", "-framerate", FPS, "-t", f"{dur:.3f}", "-i", img,
+    _run(["-loop", "1", "-i", img, "-frames:v", frames,
           "-vf", vf, "-an", "-c:v", config.VIDEO_CODEC, "-preset", "veryfast",
           "-pix_fmt", "yuv420p", out])
     return out

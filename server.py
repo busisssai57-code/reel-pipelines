@@ -69,11 +69,32 @@ def _draft_payload(row: dict) -> dict:
     }
 
 
+RENDER_DEADLINE_S = 900  # hard ceiling so a stuck render can't sit in 'running' forever
+
+
+def _watchdog(job_id: str, seconds: float = RENDER_DEADLINE_S) -> threading.Timer:
+    """Fail a job that overruns the deadline so it can't wedge in 'running'.
+
+    Python can't kill the worker thread, but the per-ffmpeg timeout bounds the
+    common hang; this is belt-and-suspenders for everything else.
+    """
+    def _fire():
+        j = bus.get_job(job_id)
+        if j and j["status"] == "running":
+            bus.set_status(job_id, "failed", error=f"watchdog: exceeded {int(seconds)}s")
+            bus.emit(job_id, "server", "stage_error", f"watchdog timeout {int(seconds)}s")
+    t = threading.Timer(seconds, _fire)
+    t.daemon = True
+    t.start()
+    return t
+
+
 def _render_job(topic: str, visual_source: str) -> str:
     """Kick a Pipeline A render on a background thread; return its job id."""
     job_id = bus.new_job("reel_A", {"topic": topic, "visual_source": visual_source})
 
     def _run():
+        wd = _watchdog(job_id)
         try:
             # reuse the same job id so all events land under the polled job
             res = pipeline_a.produce(topic, visual_source=visual_source, job_id=job_id)
@@ -84,6 +105,8 @@ def _render_job(topic: str, visual_source: str) -> str:
         except Exception as e:
             bus.set_status(job_id, "failed", error=repr(e))
             bus.emit(job_id, "server", "stage_error", repr(e))
+        finally:
+            wd.cancel()
 
     threading.Thread(target=_run, daemon=True).start()
     return job_id
@@ -101,6 +124,7 @@ def _regenerate_job(draft_id: int) -> str:
     })
 
     def _run():
+        wd = _watchdog(job_id)
         try:
             bus.set_status(job_id, "running")
             res = batch.regenerate_one(
@@ -113,6 +137,8 @@ def _regenerate_job(draft_id: int) -> str:
         except Exception as e:
             bus.set_status(job_id, "failed", error=repr(e))
             bus.emit(job_id, "server", "stage_error", repr(e))
+        finally:
+            wd.cancel()
 
     threading.Thread(target=_run, daemon=True).start()
     return job_id
@@ -413,6 +439,14 @@ class Handler(BaseHTTPRequestHandler):
 def main(port: int = 8787):
     logging.basicConfig(level=logging.INFO)
     bus.init()
+    # A render only runs while this process is alive, so any job still 'running'
+    # at boot was orphaned by a crash/restart -- reconcile it to failed.
+    with db.conn() as c:
+        stale = [r["id"] for r in c.execute("SELECT id FROM jobs WHERE status='running'").fetchall()]
+    for jid in stale:
+        bus.set_status(jid, "failed", error="orphaned by server restart")
+    if stale:
+        log.info("reconciled %d orphaned running job(s) -> failed", len(stale))
     srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     print(f"Reel Pipeline API + dashboard on http://127.0.0.1:{port}")
     print(f"Engine: {hunyuan_video.ENGINE_NAME} available={hunyuan_video.is_available()}")
