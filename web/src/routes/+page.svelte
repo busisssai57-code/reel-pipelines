@@ -2,8 +2,10 @@
   import { live } from '$lib/stores/live';
   import { flip } from 'svelte/animate';
   import { d } from '$lib/motion';
+  import { activity, statusRank } from '$lib/util';
   import StatCard from '$lib/components/StatCard.svelte';
-  import AgentCard from '$lib/components/AgentCard.svelte';
+  import AgentTile from '$lib/components/AgentTile.svelte';
+  import SystemVitals from '$lib/components/SystemVitals.svelte';
   import EventFeed from '$lib/components/EventFeed.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
 
@@ -15,7 +17,10 @@
     published: drafts.filter((x) => x.status === 'published').length
   });
   let loading = $derived($live.lastUpdated === 0);
+  let agents = $derived([...$live.agents].sort((a, b) => statusRank(a) - statusRank(b)));
 </script>
+
+<SystemVitals agents={$live.agents} events={$live.events} />
 
 <section class="grid tiles" aria-label="Overview">
   <StatCard label="Total Reels" value={counts.total} accent />
@@ -35,8 +40,8 @@
   <p class="empty">No agents reporting. Start the backend with <code>run.py ai-team</code>.</p>
 {:else}
   <div class="grid cards">
-    {#each $live.agents as agent (agent.name)}
-      <div animate:flip={{ duration: d(320) }}><AgentCard {agent} /></div>
+    {#each agents as agent (agent.name)}
+      <div animate:flip={{ duration: d(320) }}><AgentTile {agent} activity={activity($live.events, agent.name)} /></div>
     {/each}
   </div>
 {/if}
