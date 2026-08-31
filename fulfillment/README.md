@@ -4,8 +4,13 @@ Order capture, inventory sync, and fulfillment triggers tied to live session
 activity. Pure standard library, Python 3.11+.
 
 ```bash
-python3 -m unittest discover -s tests -t .   # 58 tests
+python3 -m pytest tests/fulfillment -q   # 58 tests
 ```
+
+Tests are plain `unittest.TestCase` classes (no framework dependency in the
+test bodies) collected by the project's pytest. `tests/` is intentionally not
+a package — sibling suites import their fixtures as top-level `conftest`, which
+only resolves while pytest keeps `tests/` on `sys.path`.
 
 ## Integration contract for the streamer
 
