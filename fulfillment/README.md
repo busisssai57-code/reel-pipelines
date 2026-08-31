@@ -109,6 +109,26 @@ not interchangeable — reporting needs to tell a pulled order from a lost sale.
 Illegal transitions raise `InvalidTransition` and leave the order untouched.
 Every order carries a `history` audit trail of timestamped changes.
 
+## Variants, and what an order does not carry
+
+**Variants are encoded in the SKU string.** `tee-blk-l` is the SKU; `tee` is a
+product. There is deliberately no `variant` field on `OrderLine`, because the
+inventory ledger keys on SKU: a separate field would create a second source of
+truth for what stock is being held, and make `available("tee")` ambiguous about
+which size it is answering for. A SKU is the fully-specified sellable unit —
+that is what makes it a stock-keeping unit.
+
+The cost is real and worth stating: one gift maps to one fully-specified SKU,
+so "send a Galaxy, get a black tee in L" works and "pick your size" does not.
+Choosing a variant needs a checkout step, and live chat is not one. Use
+`sku_names` for the human label so an operator reads "Black Tee (L)" rather
+than the raw SKU.
+
+**An order carries no shipping address.** Nothing in a chat event can supply
+one, so orders reach `FULFILLED` with a `buyer_handle` and no destination. That
+is sufficient for stock control and reporting, and not sufficient to actually
+ship. Collecting an address is a separate flow this module does not model.
+
 ## Storage
 
 `InventoryStore` and `OrderStore` are in-memory and thread-safe. They are the
