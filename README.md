@@ -162,9 +162,37 @@ live — `python run.py --console`, then `!buy alice: tee-blk-l x2`.
 imports nothing from `bta/`, so both stay independently testable.
 
 **A gift is not automatically a product.** Nothing is inferred — a gift places
-an order only if you mapped it, because a gift carries no size or variant and
-guessing would reserve real stock against a joke. Map each gift to one
-fully-specified SKU.
+an order only if you mapped it, because guessing would reserve real stock
+against a joke.
+
+### Variants go in the SKU
+
+Each variant is its own SKU with its own stock line:
+
+```ini
+COMMERCE_STOCK=tee-blk-l:40,tee-blk-m:25
+COMMERCE_SKU_NAMES=tee-blk-l:large black tee,tee-blk-m:medium black tee
+COMMERCE_GIFT_SKUS=Galaxy:tee-blk-l,Rose:tee-blk-m
+```
+
+`tee-blk-l` and `tee-blk-m` are separate products; selling out of one leaves
+the other untouched. The SKU is an opaque identifier — nothing parses it, so
+any naming scheme works.
+
+This falls out of a real constraint: a TikTok gift carries no size or colour,
+so a gift can only ever claim one **fully-specified** SKU. There is no way for
+a viewer to pick a size from chat. If you sell four sizes, that is four gifts
+or four SKUs reachable another way.
+
+Two things this makes worth doing:
+
+- **Set `COMMERCE_SKU_NAMES`.** With variants in the SKU, an unnamed product
+  gets read aloud as "tee blk l". Preflight warns about any you missed.
+- **Run `python run.py --check`.** A gift mapped to a SKU that is not stocked
+  is refused at startup rather than mid-stream — otherwise the typo only
+  surfaces once a viewer has already spent money, and they are deliberately
+  told nothing, because an unknown SKU is an operator fault rather than a
+  stock-out.
 
 Two behaviours worth setting deliberately:
 
@@ -185,7 +213,7 @@ pipeline.commerce.subscribe(lambda order, change: overlay.push(order))
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest              # 216 tests, no network or API key needed
+python -m pytest              # 228 tests, no network or API key needed
 ```
 
 Tests run entirely offline (`tests/fulfillment/` belongs to the fulfillment

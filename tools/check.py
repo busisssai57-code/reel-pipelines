@@ -183,6 +183,67 @@ async def check_tiktok(cfg: Config, report: Report, *, console: bool) -> None:
         )
 
 
+def check_commerce(cfg: Config, report: Report) -> None:
+    if not cfg.commerce.enabled:
+        return
+    commerce = cfg.commerce
+
+    if not commerce.stock:
+        report.add(
+            WARN, "Commerce", "enabled but COMMERCE_STOCK is empty — nothing can sell"
+        )
+        return
+
+    total = sum(commerce.stock.values())
+    report.add(
+        PASS,
+        "Commerce stock",
+        f"{len(commerce.stock)} sku(s), {total} unit(s): "
+        + ", ".join(f"{sku} x{count}" for sku, count in sorted(commerce.stock.items())),
+    )
+
+    # Variants live in the sku string, so show the operator exactly which
+    # fully-specified product each gift claims.
+    if commerce.gift_skus:
+        report.add(
+            PASS,
+            "Commerce gift mapping",
+            "; ".join(
+                f"{gift} -> {sku}" for gift, sku in sorted(commerce.gift_skus.items())
+            ),
+        )
+    else:
+        report.add(
+            WARN,
+            "Commerce gift mapping",
+            "no COMMERCE_GIFT_SKUS set — gifts will never place an order",
+        )
+
+    unnamed = commerce.unnamed_skus()
+    if unnamed and commerce.announce_orders:
+        report.add(
+            WARN,
+            "Commerce spoken names",
+            f"no COMMERCE_SKU_NAMES for: {', '.join(unnamed)} — these get read "
+            "out as-is on stream",
+        )
+
+    if not commerce.auto_fulfill_gifts:
+        report.add(
+            WARN,
+            "Commerce fulfillment",
+            "COMMERCE_AUTO_FULFILL_GIFTS is off — gift orders stay RESERVED and "
+            "something must fulfil or cancel them, or stock is held forever",
+        )
+    report.add(
+        PASS,
+        "Commerce end-of-stream policy",
+        "held stock is released when the broadcast ends"
+        if commerce.release_holds_on_end
+        else "buyers keep reserved stock after the broadcast ends",
+    )
+
+
 def check_audio(cfg: Config, report: Report) -> None:
     from bta.audio.sink import build_sink
 
@@ -239,6 +300,7 @@ async def run_preflight(
         report.add(FAIL, "Configuration", str(exc))
 
     check_audio(cfg, report)
+    check_commerce(cfg, report)
     await check_tiktok(cfg, report, console=console)
     await check_vtube(cfg, report)
     if cfg.gemini.api_key:

@@ -5,6 +5,13 @@ translation lives here: :class:`ChatMessage` in, ``LiveEvent`` out, and the
 resulting :class:`EventResult` turned into something the streamer can say out
 loud.
 
+**Variants are encoded in the SKU string.** ``tee-blk-l`` is one sellable
+thing, not a tee that needs a size chosen later; ``tee-blk-m`` is a different
+one. The SKU is treated as an opaque identifier throughout — nothing here
+parses it, so any scheme works as long as each variant has its own SKU and its
+own stock line. The consequence to design around is that a TikTok gift carries
+no size or colour, so a gift can only ever map to one fully-specified SKU.
+
 Two rules from ``fulfillment/README.md`` shape this file:
 
 * ``handle_live_event`` never raises — it returns a result. An out-of-stock
@@ -59,6 +66,24 @@ class CommerceBridge:
         self.orders_placed = 0
         self.orders_rejected = 0
         self.duplicates_ignored = 0
+
+        unnamed = cfg.unnamed_skus()
+        if unnamed and cfg.announce_orders:
+            # Variants live in the SKU, so unnamed products get read out as
+            # "tee blk l" on a live stream. Worth one nudge at startup.
+            log.warning(
+                "No COMMERCE_SKU_NAMES entry for: %s — the streamer will say "
+                "these out loud as-is.",
+                ", ".join(unnamed),
+            )
+
+    def spoken_name(self, sku: str) -> str:
+        """How a SKU should be said out loud."""
+        named = self.cfg.sku_names.get(sku)
+        if named:
+            return named
+        # No name configured: at least stop the separators being voiced.
+        return sku.replace("-", " ").replace("_", " ").strip() or sku
 
     # -- session lifecycle -------------------------------------------------
 
@@ -234,7 +259,7 @@ class CommerceBridge:
     ) -> str:
         if not self.cfg.announce_orders:
             return ""
-        item = self.cfg.sku_names.get(sku, sku)
+        item = self.spoken_name(sku)
         countable = f"{quantity}x {item}" if quantity > 1 else item
         state = (
             "confirmed and on the way"
@@ -255,7 +280,7 @@ class CommerceBridge:
         # could have bought is "sold out" would be a lie.
         if reason != "InsufficientStock":
             return ""
-        item = self.cfg.sku_names.get(sku, sku)
+        item = self.spoken_name(sku)
         return (
             f"{message.user} tried to claim {item} but it is sold out. "
             "Let them down warmly and point them at what is still available."

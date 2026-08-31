@@ -285,6 +285,72 @@ def test_stock_sync_reconciles_levels():
     assert bridge.service.inventory.level("tee-blk-l").on_hand == 20
 
 
+# -- variants live in the sku string ---------------------------------------
+
+
+def test_variants_are_distinct_products():
+    """tee-blk-l and tee-blk-m are separate skus with separate stock."""
+    bridge = make_bridge(
+        stock={"tee-blk-l": 1, "tee-blk-m": 1},
+        gift_skus={"galaxy": "tee-blk-l", "rose": "tee-blk-m"},
+        sku_names={},
+    )
+    assert bridge.on_chat_message(gift(name="Galaxy", event_id="a")).ok
+    assert bridge.on_chat_message(gift(name="Rose", event_id="b")).ok
+    # Selling the large must not have touched the medium.
+    assert bridge.service.inventory.level("tee-blk-m").on_hand == 0
+    assert bridge.service.inventory.level("tee-blk-l").on_hand == 0
+
+
+def test_running_out_of_one_variant_leaves_the_others():
+    bridge = make_bridge(
+        stock={"tee-blk-l": 1, "tee-blk-m": 5},
+        gift_skus={"galaxy": "tee-blk-l"},
+        sku_names={},
+    )
+    assert bridge.on_chat_message(gift(event_id="a")).ok
+    assert bridge.on_chat_message(gift(event_id="b")).ok is False
+    assert bridge.service.inventory.level("tee-blk-m").on_hand == 5
+
+
+def test_sku_is_never_parsed_for_variants():
+    """Any scheme works; the sku is an opaque id."""
+    bridge = make_bridge(
+        stock={"WEIRD_SKU::v2/red": 1},
+        gift_skus={"galaxy": "WEIRD_SKU::v2/red"},
+        sku_names={},
+    )
+    result = bridge.on_chat_message(gift())
+    assert result.ok
+    assert result.order.lines[0].sku == "WEIRD_SKU::v2/red"
+
+
+@pytest.mark.parametrize(
+    "sku,expected",
+    [
+        ("tee-blk-l", "tee blk l"),
+        ("tee_blk_l", "tee blk l"),
+        ("mug", "mug"),
+    ],
+)
+def test_unnamed_skus_are_made_speakable(sku, expected):
+    """Hyphens get voiced by TTS, and variants put them in every sku."""
+    bridge = make_bridge(stock={sku: 1}, sku_names={})
+    assert bridge.spoken_name(sku) == expected
+
+
+def test_a_configured_name_wins_over_the_sku():
+    bridge = make_bridge(sku_names={"tee-blk-l": "large black tee"})
+    assert bridge.spoken_name("tee-blk-l") == "large black tee"
+
+
+def test_unnamed_skus_are_reported():
+    cfg = CommerceConfig(
+        enabled=True, stock={"tee-blk-l": 1, "mug": 1}, sku_names={"mug": "enamel mug"}
+    )
+    assert cfg.unnamed_skus() == ["tee-blk-l"]
+
+
 # -- what the streamer says ------------------------------------------------
 
 

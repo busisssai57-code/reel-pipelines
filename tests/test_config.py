@@ -160,6 +160,46 @@ def test_non_numeric_stock_is_reported(monkeypatch):
         load_config(env_file=None)
 
 
+def test_a_gift_mapped_to_an_unknown_sku_is_caught_at_startup():
+    """Otherwise a typo only surfaces once a viewer has already paid."""
+    cfg = Config()
+    cfg.gemini.api_key, cfg.tiktok.handle = "k", "@h"
+    cfg.commerce.enabled = True
+    cfg.commerce.stock = {"tee-blk-l": 5}
+    cfg.commerce.gift_skus = {"galaxy": "tee-blk-xl"}  # variant not stocked
+
+    with pytest.raises(ConfigError) as info:
+        cfg.validate()
+    message = str(info.value)
+    assert "tee-blk-xl" in message
+    assert "tee-blk-l" in message, "should list what is actually stocked"
+
+
+def test_a_correctly_mapped_gift_validates():
+    cfg = Config()
+    cfg.gemini.api_key, cfg.tiktok.handle = "k", "@h"
+    cfg.commerce.enabled = True
+    cfg.commerce.stock = {"tee-blk-l": 5}
+    cfg.commerce.gift_skus = {"galaxy": "tee-blk-l"}
+    cfg.validate()
+
+
+def test_negative_stock_is_rejected():
+    cfg = Config()
+    cfg.gemini.api_key, cfg.tiktok.handle = "k", "@h"
+    cfg.commerce.enabled = True
+    cfg.commerce.stock = {"tee-blk-l": -1}
+    with pytest.raises(ConfigError, match="cannot be negative"):
+        cfg.validate()
+
+
+def test_commerce_problems_are_ignored_while_disabled():
+    cfg = Config()
+    cfg.gemini.api_key, cfg.tiktok.handle = "k", "@h"
+    cfg.commerce.gift_skus = {"galaxy": "not-stocked"}
+    cfg.validate()  # commerce is off, so this is not a problem yet
+
+
 def test_vtube_url_is_built_from_host_and_port():
     cfg = Config()
     cfg.vtube.host, cfg.vtube.port = "10.0.0.5", 9000

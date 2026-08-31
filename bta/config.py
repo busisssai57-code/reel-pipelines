@@ -198,6 +198,35 @@ class CommerceConfig:
     release_holds_on_end: bool = False
     announce_orders: bool = True
 
+    def problems(self) -> list[str]:
+        """Configuration errors that would only surface mid-stream otherwise.
+
+        A gift mapped to a SKU that inventory has never heard of is the
+        expensive one: the viewer spends real money, the order is rejected as
+        UnknownSku, and they are deliberately told nothing (it is an operator
+        fault, not a stock-out). Catching it at startup is the difference
+        between a typo and a bad stream.
+        """
+        if not self.enabled:
+            return []
+
+        found: list[str] = []
+        for gift_name, sku in sorted(self.gift_skus.items()):
+            if sku not in self.stock:
+                found.append(
+                    f"COMMERCE_GIFT_SKUS maps gift {gift_name!r} to sku {sku!r}, "
+                    f"which is not in COMMERCE_STOCK"
+                    + (f" (known: {', '.join(sorted(self.stock))})" if self.stock else "")
+                )
+        for sku, count in sorted(self.stock.items()):
+            if count < 0:
+                found.append(f"COMMERCE_STOCK for {sku!r} cannot be negative ({count})")
+        return found
+
+    def unnamed_skus(self) -> list[str]:
+        """Stock SKUs with no spoken name. Not fatal, but they get read aloud."""
+        return sorted(sku for sku in self.stock if sku not in self.sku_names)
+
 
 @dataclass(slots=True)
 class Config:
@@ -234,6 +263,7 @@ class Config:
             problems.append("AUDIO_FRAME_MS must be between 5 and 100")
         if not 1 <= self.vtube.inject_fps <= 120:
             problems.append("VTS_INJECT_FPS must be between 1 and 120")
+        problems.extend(self.commerce.problems())
         if problems:
             raise ConfigError(
                 "Configuration problems:\n"
