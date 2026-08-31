@@ -1,0 +1,11 @@
+# Core pipeline
+google-genai>=1.20.0        # Gemini Multimodal Live API (native audio)
+TikTokLive>=6.4.0           # TikTok live chat capture
+websockets>=13.0            # VTube Studio API transport
+python-dotenv>=1.0.0        # .env loading
+
+# Audio playback. Needs the PortAudio system library:
+#   macOS           brew install portaudio
+#   Debian/Ubuntu   sudo apt install libportaudio2
+# Without it the app still runs and falls back to writing a .wav file.
+sounddevice>=0.4.6

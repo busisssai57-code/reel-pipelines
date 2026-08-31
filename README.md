@@ -1,62 +1,237 @@
 # BTA — Beyond
 
-**Social media automation studio.** Automated TikTok Live streamer and product fulfillment, built to run hands-free.
+**Social media automation studio.** An automated AI TikTok Live streamer: it
+reads your live chat, thinks and speaks with Gemini's native-audio Live API,
+and animates a VTube Studio avatar in time with its own voice.
 
 ---
 
-## What it does
+## The pipeline
 
-| Module | Description |
-|--------|-------------|
-| **TikTok Live Streamer** | Fully automated live streams — scene management, overlays, chat interaction, and scheduled go-lives |
-| **Product Fulfillment** | Order capture, inventory sync, and fulfillment triggers tied directly to live session activity |
-| **Automation Studio** | Central dashboard to configure, schedule, and monitor all pipelines |
+```
+TikTok Live chat          Director              Gemini Live API
+ (TikTokLive)   ──────▶  filter, rate-limit ──▶ native audio out
+                         batch, prioritize            │
+                                                      │ 24 kHz PCM
+                                                      ▼
+                                              SpeechPlayer
+                                          (real-time pacing)
+                                              │           │
+                          audio device ◀──────┘           └──────▶ lip-sync
+                     (virtual cable → OBS)                         envelope
+                                                                      │
+                                                       VTube Studio ◀─┘
+                                                    (parameter injection)
+```
+
+| Module | What it does |
+|---|---|
+| `bta/sources/tiktok.py` | Captures comments, gifts, follows and shares from a live room |
+| `bta/director.py` | Decides what is worth reacting to — filtering, cooldowns, batching, idle chatter |
+| `bta/brain/` | Gemini Live session: persona, native audio, reconnection, session resumption |
+| `bta/audio/` | Real-time playback and the lip-sync envelope derived from the same frames |
+| `bta/avatar/vtube.py` | VTube Studio API client: auth handshake and parameter injection |
+| `bta/commerce.py` | Adapter onto `fulfillment/` — turns gifts and purchases into orders |
+| `fulfillment/` | Order capture, inventory, fulfillment triggers (see its own README) |
+| `bta/pipeline.py` | Wires it together and supervises every task |
+
+### How lip sync actually works
+
+The VTube Studio API accepts **numeric parameter values only — there is no
+endpoint that takes audio.** So the avatar cannot be fed the voice stream
+directly. Instead `SpeechPlayer` pulls one 20 ms frame at a time and hands it
+to the sound device *and* the envelope follower in the same step, then pushes
+the resulting `MouthOpen` / `MouthSmile` values over the API at 60 fps. Because
+both come from the same frame at the same moment, the mouth matches what the
+viewer hears.
 
 ---
 
-## Stack
+## Setup
 
-> _To be defined as the project takes shape._
-
----
-
-## Getting Started
+**1. Install**
 
 ```bash
-# Clone
-git clone https://github.com/busisssai57-code/reel-pipelines.git bta
-cd bta
-
-# Install deps
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+```
 
-# Configure
-cp .env.example .env   # fill in your keys
+Audio playback needs the PortAudio system library:
 
-# Run
-python run.py
+| Platform | Command |
+|---|---|
+| macOS | `brew install portaudio` |
+| Debian/Ubuntu | `sudo apt install libportaudio2` |
+| Windows | already included with the `sounddevice` wheel |
+
+Without it the app still runs and writes a `.wav` file instead.
+
+**2. Configure**
+
+```bash
+cp .env.example .env
+```
+
+Only two values are required:
+
+```ini
+GEMINI_API_KEY=...        # https://aistudio.google.com/apikey
+TIKTOK_HANDLE=@yourhandle
+```
+
+**3. Route the audio into your stream**
+
+Install a virtual audio cable, then set `AUDIO_DEVICE` to it:
+
+| Platform | Virtual cable |
+|---|---|
+| Windows | [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) → `CABLE Input` |
+| macOS | [BlackHole](https://existential.audio/blackhole/) → `BlackHole 2ch` |
+| Linux | `pactl load-module module-null-sink sink_name=bta` |
+
+```bash
+python run.py --list-devices     # find the exact name
+```
+
+In OBS, add an **Audio Input Capture** source pointing at that cable.
+
+**4. Check everything before going live**
+
+```bash
+python run.py --check
+```
+
+This verifies config, the audio device, TikTok reachability, the VTube Studio
+handshake (your avatar's mouth will move) and a real Gemini Live round-trip.
+
+---
+
+## Running
+
+```bash
+python run.py                 # go live
+python run.py --console       # rehearse with typed chat, no TikTok needed
+python run.py --check         # preflight only
+python run.py --no-vts        # voice only, no avatar
+python run.py --list-devices  # audio outputs
+```
+
+`--console` is the fastest way to hear the voice and watch the avatar without
+being live. Type `alice: what game is this?` and press Enter.
+
+---
+
+## Tuning
+
+Everything below is optional and lives in `.env`.
+
+| Setting | Effect |
+|---|---|
+| `GEMINI_VOICE` | `Puck`, `Charon`, `Kore`, `Fenrir`, `Aoede`, `Leda`, `Orus`, `Zephyr` |
+| `PERSONA_NAME` / `PERSONA_EXTRA` | Who the streamer is and how it behaves |
+| `PERSONA_FILE` | Longer character brief, loaded from a file |
+| `DIRECTOR_MAX_BATCH` | How many chat messages get bundled into one response |
+| `DIRECTOR_USER_COOLDOWN` | Seconds before the same viewer can trigger another reply |
+| `DIRECTOR_IDLE_PROMPT_AFTER` | Seconds of silence before it speaks unprompted |
+| `DIRECTOR_BLOCKED_WORDS` | Messages containing these are dropped entirely |
+| `AUDIO_LIPSYNC_DELAY_MS` | Raise if the lips move *before* the voice is heard |
+| `VTS_MOUTH_OPEN_PARAM` | Change if your model uses custom parameter names |
+
+The model ID is left blank by default: the Live API model names are preview
+builds that Google rotates, so the app tries a fallback list and uses whichever
+one connects. Pin one with `GEMINI_MODEL` if you prefer.
+
+---
+
+## Selling during a stream
+
+Set `COMMERCE_ENABLED=true` and declare stock plus a gift mapping:
+
+```ini
+COMMERCE_STOCK=tee-blk-l:40
+COMMERCE_SKU_NAMES=tee-blk-l:black tee
+COMMERCE_GIFT_SKUS=Galaxy:tee-blk-l
+```
+
+Now a viewer sending a Galaxy claims a tee: stock is reserved, the order is
+fulfilled (TikTok already took their money), and the streamer thanks them by
+name. If it is sold out they hear a warm apology instead. Try it without going
+live — `python run.py --console`, then `!buy alice: tee-blk-l x2`.
+
+`bta/commerce.py` is the only place the two halves meet; `fulfillment/`
+imports nothing from `bta/`, so both stay independently testable.
+
+**A gift is not automatically a product.** Nothing is inferred — a gift places
+an order only if you mapped it, because a gift carries no size or variant and
+guessing would reserve real stock against a joke. Map each gift to one
+fully-specified SKU.
+
+Two behaviours worth setting deliberately:
+
+- `COMMERCE_AUTO_FULFILL_GIFTS` (default on). Stock is two-phase: capture
+  *reserves*, fulfil *depletes*. A gift is already paid for, so it is fulfilled
+  at once. Turn this off and something must later fulfil or cancel each order,
+  or the stock is held forever.
+- `COMMERCE_RELEASE_HOLDS_ON_END` (default off). Decides whether a buyer whose
+  stream dropped keeps their unit. There is no safe default, so it is explicit.
+
+For an overlay or dashboard, subscribe rather than poll:
+
+```python
+pipeline.commerce.subscribe(lambda order, change: overlay.push(order))
+```
+
+## Development
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest              # 216 tests, no network or API key needed
+```
+
+Tests run entirely offline (`tests/fulfillment/` belongs to the fulfillment
+module). Do not add `tests/__init__.py` or a second `conftest.py` under
+`tests/` — either one breaks the shared fixture imports.
+
+`tools/mock_vts.py` is a stand-in VTube Studio server implementing the real
+protocol — you can also run it directly to try the pipeline on a machine with
+no VTube Studio installed:
+
+```bash
+python -m tools.mock_vts --port 8001 --verbose
 ```
 
 ---
 
-## Project Structure
+## Behaviour worth knowing
 
-```
-bta/
-├── README.md
-└── ...
-```
+- **Chat is filtered, not transcribed.** URLs, repeated-character spam, blocked
+  words, duplicate lines and rapid-fire messages from one viewer are dropped
+  before they ever reach the model.
+- **It will not talk over itself.** A new turn only starts once the previous
+  one has finished playing.
+- **Prompt injection is expected.** Viewer messages are framed as data and the
+  persona is told to ignore instructions coming from chat.
+- **Long streams are handled.** Live sessions are time-limited, so the app
+  keeps a session-resumption handle and reconnects transparently; context
+  compression keeps a multi-hour stream from hitting the context limit.
+- **A bad API key stops immediately** with a clear message rather than
+  retrying forever. Network problems retry with backoff.
+
+## Security
+
+`.env` and `.vts_token` are gitignored. `TIKTOK_SESSION_ID`, if you set it, is
+a login credential — treat it like a password.
 
 ---
 
 ## Roadmap
 
-- [ ] TikTok Live automated streaming engine
+- [x] TikTok Live automated streaming engine
+- [x] Gemini native-audio brain and voice
+- [x] VTube Studio avatar animation
+- [x] Order capture & fulfillment integration (`fulfillment/` + `bta/commerce.py`)
 - [ ] Live product showcase & pinning
-- [ ] Order capture & fulfillment integration
 - [ ] Dashboard & scheduling UI
 - [ ] Analytics & reporting
-
----
 
 > **BTA** stands for *Beyond* — automation that goes beyond the manual grind.
