@@ -35,6 +35,10 @@ class ChatMessage:
         """One line as the model sees it."""
         if self.kind == "chat":
             return f"{self.user}: {self.text}"
+        if self.kind == "system":
+            # A directive to the streamer, not something a viewer said, so it
+            # carries no speaker prefix.
+            return f"[stage direction] {self.text}"
         return f"[{self.kind}] {self.user}: {self.text}" if self.text else f"[{self.kind}] {self.user}"
 
 

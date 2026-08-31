@@ -25,10 +25,42 @@ _KINDS = {
 }
 
 
+def parse_buy(line: str, default_user: str) -> ChatMessage | None:
+    """`!buy alice: tee-blk-l x2` — simulate a purchase carrying a SKU."""
+    body = line[len("!buy") :].strip()
+    if not body:
+        return None
+
+    user = default_user
+    if ":" in body:
+        candidate, _, rest = body.partition(":")
+        if candidate.strip() and " " not in candidate.strip():
+            user, body = candidate.strip(), rest.strip()
+
+    quantity = "1"
+    if " x" in f" {body}":
+        body, _, tail = body.rpartition(" x")
+        quantity = tail.strip() or "1"
+    sku = body.strip()
+    if not sku:
+        return None
+
+    return ChatMessage(
+        user=user,
+        text=f"bought {sku}",
+        kind="purchase",
+        priority=Priority.GIFT,
+        meta={"sku": sku, "qty": quantity, "event_id": f"console:{user}:{sku}:{quantity}"},
+    )
+
+
 def parse_line(line: str, default_user: str = "TestViewer") -> ChatMessage | None:
     line = line.strip()
     if not line:
         return None
+
+    if line.lower().startswith("!buy"):
+        return parse_buy(line, default_user)
 
     kind, priority = "chat", Priority.CHAT
     for token, (event_kind, event_priority) in _KINDS.items():
@@ -66,6 +98,7 @@ class ConsoleSource:
             "\nConsole chat is live. Type a message and press Enter.\n"
             "  alice: what game is this?      -> a normal chat message\n"
             "  !gift bob: sent 5x Rose        -> a gift\n"
+            "  !buy carol: tee-blk-l x2       -> a purchase (needs COMMERCE_ENABLED)\n"
             "  Ctrl-D to stop.\n",
             file=sys.stderr,
         )

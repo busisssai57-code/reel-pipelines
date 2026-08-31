@@ -44,6 +44,7 @@ class Director:
         self.queue = DroppingQueue(cfg.queue_size)
         self._last_seen_from: dict[str, float] = {}
         self._recent_texts: dict[str, float] = {}
+        self._recent_events: dict[str, float] = {}
         self._idle_prompts = cfg.idle_prompts or DEFAULT_IDLE_PROMPTS
         self.last_activity = time.monotonic()
         self.accepted = 0
@@ -69,6 +70,16 @@ class Director:
             return self._reject()
         if message.kind in ("follow", "share") and not self.cfg.greet_follows:
             return self._reject()
+
+        # TikTok redelivers events and TikTokLive replays them across
+        # reconnects. Text dedupe below only covers chat, so without this a
+        # replayed gift would have the streamer thank the same person twice.
+        event_id = message.meta.get("event_id", "")
+        if event_id:
+            self._expire(now)
+            if event_id in self._recent_events:
+                return self._reject()
+            self._recent_events[event_id] = now
 
         if message.kind == "chat":
             text = self.clean(message.text)
@@ -103,9 +114,9 @@ class Director:
 
     def _expire(self, now: float) -> None:
         window = self.cfg.dedupe_window
-        stale = [text for text, seen in self._recent_texts.items() if now - seen > window]
-        for text in stale:
-            del self._recent_texts[text]
+        for cache in (self._recent_texts, self._recent_events):
+            for key in [k for k, seen in cache.items() if now - seen > window]:
+                del cache[key]
         # Keep the cooldown map from growing without bound on a long stream.
         if len(self._last_seen_from) > 5000:
             cutoff = now - self.cfg.user_cooldown

@@ -31,6 +31,8 @@ TikTok Live chat          Director              Gemini Live API
 | `bta/brain/` | Gemini Live session: persona, native audio, reconnection, session resumption |
 | `bta/audio/` | Real-time playback and the lip-sync envelope derived from the same frames |
 | `bta/avatar/vtube.py` | VTube Studio API client: auth handshake and parameter injection |
+| `bta/commerce.py` | Adapter onto `fulfillment/` — turns gifts and purchases into orders |
+| `fulfillment/` | Order capture, inventory, fulfillment triggers (see its own README) |
 | `bta/pipeline.py` | Wires it together and supervises every task |
 
 ### How lip sync actually works
@@ -141,16 +143,58 @@ one connects. Pin one with `GEMINI_MODEL` if you prefer.
 
 ---
 
+## Selling during a stream
+
+Set `COMMERCE_ENABLED=true` and declare stock plus a gift mapping:
+
+```ini
+COMMERCE_STOCK=tee-blk-l:40
+COMMERCE_SKU_NAMES=tee-blk-l:black tee
+COMMERCE_GIFT_SKUS=Galaxy:tee-blk-l
+```
+
+Now a viewer sending a Galaxy claims a tee: stock is reserved, the order is
+fulfilled (TikTok already took their money), and the streamer thanks them by
+name. If it is sold out they hear a warm apology instead. Try it without going
+live — `python run.py --console`, then `!buy alice: tee-blk-l x2`.
+
+`bta/commerce.py` is the only place the two halves meet; `fulfillment/`
+imports nothing from `bta/`, so both stay independently testable.
+
+**A gift is not automatically a product.** Nothing is inferred — a gift places
+an order only if you mapped it, because a gift carries no size or variant and
+guessing would reserve real stock against a joke. Map each gift to one
+fully-specified SKU.
+
+Two behaviours worth setting deliberately:
+
+- `COMMERCE_AUTO_FULFILL_GIFTS` (default on). Stock is two-phase: capture
+  *reserves*, fulfil *depletes*. A gift is already paid for, so it is fulfilled
+  at once. Turn this off and something must later fulfil or cancel each order,
+  or the stock is held forever.
+- `COMMERCE_RELEASE_HOLDS_ON_END` (default off). Decides whether a buyer whose
+  stream dropped keeps their unit. There is no safe default, so it is explicit.
+
+For an overlay or dashboard, subscribe rather than poll:
+
+```python
+pipeline.commerce.subscribe(lambda order, change: overlay.push(order))
+```
+
 ## Development
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest              # 108 tests, no network or API key needed
+python -m pytest              # 216 tests, no network or API key needed
 ```
 
-Tests run entirely offline. `tools/mock_vts.py` is a stand-in VTube Studio
-server implementing the real protocol — you can also run it directly to try
-the pipeline on a machine with no VTube Studio installed:
+Tests run entirely offline (`tests/fulfillment/` belongs to the fulfillment
+module). Do not add `tests/__init__.py` or a second `conftest.py` under
+`tests/` — either one breaks the shared fixture imports.
+
+`tools/mock_vts.py` is a stand-in VTube Studio server implementing the real
+protocol — you can also run it directly to try the pipeline on a machine with
+no VTube Studio installed:
 
 ```bash
 python -m tools.mock_vts --port 8001 --verbose
@@ -185,8 +229,8 @@ a login credential — treat it like a password.
 - [x] TikTok Live automated streaming engine
 - [x] Gemini native-audio brain and voice
 - [x] VTube Studio avatar animation
+- [x] Order capture & fulfillment integration (`fulfillment/` + `bta/commerce.py`)
 - [ ] Live product showcase & pinning
-- [ ] Order capture & fulfillment integration
 - [ ] Dashboard & scheduling UI
 - [ ] Analytics & reporting
 

@@ -99,6 +99,33 @@ def test_gifts_bypass_the_chat_cooldown():
     assert director.accept(gift("alice"), now=101.0)
 
 
+def test_a_redelivered_gift_is_only_greeted_once():
+    """A replayed gift must not have the streamer thank someone twice."""
+    director = make()
+    first = gift("whale")
+    first.meta["event_id"] = "msg-9"
+    repeat = gift("whale")
+    repeat.meta["event_id"] = "msg-9"
+
+    assert director.accept(first, now=100.0)
+    assert not director.accept(repeat, now=101.0)
+
+
+def test_distinct_gift_events_are_both_greeted():
+    director = make()
+    for index in range(2):
+        message = gift("whale")
+        message.meta["event_id"] = f"msg-{index}"
+        assert director.accept(message, now=100.0 + index)
+    assert director.pending == 2
+
+
+def test_events_without_an_id_are_not_deduplicated():
+    director = make()
+    assert director.accept(gift("whale"), now=100.0)
+    assert director.accept(gift("whale"), now=101.0)
+
+
 def test_gifts_can_be_disabled():
     director = make(greet_gifts=False)
     assert not director.accept(gift("alice"))

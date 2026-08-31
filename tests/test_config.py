@@ -122,6 +122,44 @@ def test_persona_file_is_appended(tmp_path, monkeypatch):
     assert "synthesizers" in cfg.gemini.persona_extra
 
 
+def test_commerce_maps_are_parsed(monkeypatch):
+    monkeypatch.setenv("COMMERCE_ENABLED", "true")
+    monkeypatch.setenv("COMMERCE_STOCK", "tee-blk-l:40, mug:12")
+    monkeypatch.setenv("COMMERCE_PRICES", "tee-blk-l:2500")
+    monkeypatch.setenv("COMMERCE_GIFT_SKUS", "Galaxy:tee-blk-l")
+    monkeypatch.setenv("COMMERCE_SKU_NAMES", "tee-blk-l:black tee")
+
+    commerce = load_config(env_file=None).commerce
+    assert commerce.enabled
+    assert commerce.stock == {"tee-blk-l": 40, "mug": 12}
+    assert commerce.prices == {"tee-blk-l": 2500}
+    # Gift names are matched case-insensitively, so keys are normalized.
+    assert commerce.gift_skus == {"galaxy": "tee-blk-l"}
+    assert commerce.sku_names == {"tee-blk-l": "black tee"}
+
+
+def test_commerce_is_off_by_default():
+    assert Config().commerce.enabled is False
+
+
+def test_holds_are_kept_on_session_end_by_default():
+    """Releasing a buyer's unit because a stream dropped must be opt-in."""
+    assert Config().commerce.release_holds_on_end is False
+
+
+@pytest.mark.parametrize("raw", ["tee-blk-l", "tee-blk-l:", ":40", "tee-blk-l:40,mug"])
+def test_malformed_pair_settings_are_reported(raw, monkeypatch):
+    monkeypatch.setenv("COMMERCE_STOCK", raw)
+    with pytest.raises(ConfigError, match="COMMERCE_STOCK"):
+        load_config(env_file=None)
+
+
+def test_non_numeric_stock_is_reported(monkeypatch):
+    monkeypatch.setenv("COMMERCE_STOCK", "tee-blk-l:lots")
+    with pytest.raises(ConfigError, match="must be a number"):
+        load_config(env_file=None)
+
+
 def test_vtube_url_is_built_from_host_and_port():
     cfg = Config()
     cfg.vtube.host, cfg.vtube.port = "10.0.0.5", 9000

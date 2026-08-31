@@ -15,6 +15,7 @@ from bta.audio.player import SpeechPlayer
 from bta.audio.sink import build_sink
 from bta.avatar.vtube import VTubeStudioClient, VTubeStudioError
 from bta.brain.gemini_live import BrainCallbacks, GeminiLiveBrain
+from bta.commerce import CommerceBridge, announcement_message
 from bta.config import Config
 from bta.director import Director
 from bta.events import ChatMessage
@@ -48,6 +49,10 @@ class Pipeline:
         )
         self.source: object | None = None
 
+        self.commerce: CommerceBridge | None = None
+        if cfg.commerce.enabled:
+            self.commerce = CommerceBridge(cfg.commerce, announce=self._announce)
+
         self._stop = asyncio.Event()
         self._tasks: list[asyncio.Task] = []
         self._transcript = ""
@@ -78,7 +83,21 @@ class Pipeline:
         self._transcript = ""
         self.player.interrupt()
 
+    def _announce(self, text: str) -> None:
+        """Give the streamer something to say about an order, at high priority."""
+        self.director.accept(announcement_message(text))
+
     def _on_chat(self, message: ChatMessage) -> None:
+        # Commerce runs before the director, so an order still lands even if
+        # the message itself is rate-limited out of the conversation.
+        if self.commerce is not None:
+            try:
+                self.commerce.on_chat_message(message)
+            except Exception:
+                # handle_live_event does not raise, but the translation around
+                # it could. A bad order must never take the broadcast down.
+                log.exception("Commerce bridge failed on a chat event")
+
         if self.director.accept(message):
             log.info("chat  %s", message.render())
 
@@ -179,6 +198,14 @@ class Pipeline:
         self.player.start()
         self.source = self._build_source()
 
+        if self.commerce is not None:
+            # One broadcast is one commerce session, so orders and the revenue
+            # summary are scoped to this run.
+            self.commerce.start_session(
+                self.cfg.commerce.session_id
+                or f"{self.cfg.tiktok.handle or 'console'}-{int(time.time())}"
+            )
+
         self._tasks = [
             asyncio.create_task(self.brain.run(), name="brain"),
             asyncio.create_task(self.source.run(), name="source"),
@@ -231,6 +258,21 @@ class Pipeline:
                 await self.vts.close()
 
         self.player.stop()
+
+        if self.commerce is not None:
+            try:
+                summary = self.commerce.end_session()
+                log.info(
+                    "Commerce: %d order(s) placed, %d rejected, %d duplicate(s) "
+                    "ignored. Session summary: %s",
+                    self.commerce.orders_placed,
+                    self.commerce.orders_rejected,
+                    self.commerce.duplicates_ignored,
+                    summary,
+                )
+            except Exception:
+                log.exception("Could not close the commerce session")
+
         log.info(
             "Stopped. %d turns spoken, %d chat messages used.",
             self.brain.turns_completed,

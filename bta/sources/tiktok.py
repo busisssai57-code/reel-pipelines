@@ -32,6 +32,17 @@ log = get_logger("source.tiktok")
 Emit = Callable[[ChatMessage], None]
 
 
+def _event_id(event: object) -> str:
+    """TikTok's own message id, used as the fulfillment idempotency key.
+
+    Chat is redelivered and TikTokLive replays events across reconnects, so an
+    order placed without this would be captured twice on a reconnect.
+    """
+    common = getattr(event, "common", None)
+    message_id = getattr(common, "msg_id", None) if common is not None else None
+    return str(message_id) if message_id else ""
+
+
 def _user_name(event: object) -> str:
     """Best display name available for whoever triggered the event."""
     user = getattr(event, "user", None)
@@ -90,7 +101,11 @@ class TikTokSource:
             priority = Priority.QUESTION if "?" in text else Priority.CHAT
             self.emit(
                 ChatMessage(
-                    user=_user_name(event), text=text, kind="chat", priority=priority
+                    user=_user_name(event),
+                    text=text,
+                    kind="chat",
+                    priority=priority,
+                    meta={"event_id": _event_id(event)},
                 )
             )
 
@@ -108,7 +123,11 @@ class TikTokSource:
                     text=f"sent {count}x {name}",
                     kind="gift",
                     priority=Priority.GIFT,
-                    meta={"gift": name, "count": str(count)},
+                    meta={
+                        "gift": name,
+                        "count": str(count),
+                        "event_id": _event_id(event),
+                    },
                 )
             )
 

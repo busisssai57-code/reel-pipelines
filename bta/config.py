@@ -61,6 +61,36 @@ def _get_float(name: str, default: float) -> float:
         raise ConfigError(f"{name} must be a number, got {raw!r}") from exc
 
 
+def _get_pairs(name: str) -> list[tuple[str, str]]:
+    """Parse `a:1,b:2` into pairs. Malformed entries are reported, not ignored."""
+    pairs: list[tuple[str, str]] = []
+    for entry in _get_list(name):
+        key, separator, value = entry.partition(":")
+        if not separator or not key.strip() or not value.strip():
+            raise ConfigError(
+                f"{name} entry {entry!r} must look like 'key:value' "
+                f"(whole setting: comma-separated pairs)"
+            )
+        pairs.append((key.strip(), value.strip()))
+    return pairs
+
+
+def _get_int_map(name: str) -> dict[str, int]:
+    result: dict[str, int] = {}
+    for key, value in _get_pairs(name):
+        try:
+            result[key] = int(value)
+        except ValueError as exc:
+            raise ConfigError(f"{name} value for {key!r} must be a number, got {value!r}") from exc
+    return result
+
+
+def _get_str_map(name: str, *, lower_keys: bool = False) -> dict[str, str]:
+    return {
+        (key.lower() if lower_keys else key): value for key, value in _get_pairs(name)
+    }
+
+
 def _get_list(name: str, default: tuple[str, ...] = ()) -> tuple[str, ...]:
     raw = _get(name)
     if not raw:
@@ -146,12 +176,37 @@ class DirectorConfig:
 
 
 @dataclass(slots=True)
+class CommerceConfig:
+    """Product fulfillment tied to live activity."""
+
+    enabled: bool = False
+    session_id: str = ""
+    # sku -> starting on-hand count.
+    stock: dict[str, int] = field(default_factory=dict)
+    # sku -> price in cents, used for revenue reporting only.
+    prices: dict[str, int] = field(default_factory=dict)
+    # sku -> human name, for what the streamer says out loud.
+    sku_names: dict[str, str] = field(default_factory=dict)
+    # Lowercased TikTok gift name -> sku. Empty means gifts never place
+    # orders; a SKU is never inferred from a gift we were not told about.
+    gift_skus: dict[str, str] = field(default_factory=dict)
+    # A gift is already paid for, so there is no later payment step to wait
+    # on. Off would leave that unit reserved forever.
+    auto_fulfill_gifts: bool = True
+    # Whether a broadcast ending releases held stock, or the buyer keeps
+    # their unit. Genuinely a policy call, so it is explicit.
+    release_holds_on_end: bool = False
+    announce_orders: bool = True
+
+
+@dataclass(slots=True)
 class Config:
     tiktok: TikTokConfig = field(default_factory=TikTokConfig)
     gemini: GeminiConfig = field(default_factory=GeminiConfig)
     vtube: VTubeConfig = field(default_factory=VTubeConfig)
     audio: AudioConfig = field(default_factory=AudioConfig)
     director: DirectorConfig = field(default_factory=DirectorConfig)
+    commerce: CommerceConfig = field(default_factory=CommerceConfig)
     log_level: str = "INFO"
 
     @property
@@ -267,6 +322,17 @@ def load_config(env_file: str | os.PathLike[str] | None = ".env") -> Config:
             strip_urls=_get_bool("DIRECTOR_STRIP_URLS", True),
             greet_gifts=_get_bool("DIRECTOR_GREET_GIFTS", True),
             greet_follows=_get_bool("DIRECTOR_GREET_FOLLOWS", True),
+        ),
+        commerce=CommerceConfig(
+            enabled=_get_bool("COMMERCE_ENABLED", False),
+            session_id=_get("COMMERCE_SESSION_ID"),
+            stock=_get_int_map("COMMERCE_STOCK"),
+            prices=_get_int_map("COMMERCE_PRICES"),
+            sku_names=_get_str_map("COMMERCE_SKU_NAMES"),
+            gift_skus=_get_str_map("COMMERCE_GIFT_SKUS", lower_keys=True),
+            auto_fulfill_gifts=_get_bool("COMMERCE_AUTO_FULFILL_GIFTS", True),
+            release_holds_on_end=_get_bool("COMMERCE_RELEASE_HOLDS_ON_END", False),
+            announce_orders=_get_bool("COMMERCE_ANNOUNCE_ORDERS", True),
         ),
         log_level=_get("LOG_LEVEL", "INFO").upper(),
     )
