@@ -8,9 +8,14 @@ python3 -m pytest tests/fulfillment -q   # 58 tests
 ```
 
 Tests are plain `unittest.TestCase` classes (no framework dependency in the
-test bodies) collected by the project's pytest. `tests/` is intentionally not
-a package — sibling suites import their fixtures as top-level `conftest`, which
-only resolves while pytest keeps `tests/` on `sys.path`.
+test bodies) collected by the project's pytest. Run them via `python3 -m pytest`
+from the repository root — the `-m` form puts the root on `sys.path`, which is
+what makes `import fulfillment` resolve.
+
+This directory deliberately adds no `tests/__init__.py` and no `conftest.py`.
+Both are shared-namespace files: a package marker moves `tests/` off `sys.path`,
+and a second `conftest` shadows the top-level one, either of which breaks the
+sibling suites' fixture imports.
 
 ## Integration contract for the streamer
 
