@@ -42,6 +42,30 @@ _FATAL_MARKERS = (
 )
 
 
+# The categories a live chat audience will actually probe for.
+#
+# These only reach the wire on Vertex AI. The Gemini Developer API (the
+# api_key path this app uses) has no safetySettings field in its
+# BidiGenerateContent setup message and rejects the whole payload if one is
+# sent -- see _live_config. Provider-side filtering still applies there at
+# Google's own default posture; it just cannot be configured from here, which
+# is why the inbound guard, the persona rules and the output cut in
+# bta/safety.py are the defences that actually carry the stream.
+_GUARDED_HARM_CATEGORIES = (
+    "HARM_CATEGORY_HARASSMENT",
+    "HARM_CATEGORY_HATE_SPEECH",
+    "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+    "HARM_CATEGORY_DANGEROUS_CONTENT",
+)
+
+
+def _safety_settings(threshold: str) -> list[types.SafetySetting]:
+    return [
+        types.SafetySetting(category=category, threshold=threshold)
+        for category in _GUARDED_HARM_CATEGORIES
+    ]
+
+
 class BrainAuthError(RuntimeError):
     """The API key or project is rejected — retrying cannot help."""
 
@@ -128,6 +152,16 @@ class GeminiLiveBrain:
             ),
             "temperature": gem.temperature,
         }
+        # The SDK models safety_settings on LiveConnectConfig, but the
+        # Developer API's setup message has no such field: sending it closes
+        # the socket with 1007 'Unknown name "safetySettings" at setup' before
+        # the API key is even validated, so every model in the fallback list
+        # fails identically and the streamer never connects. Vertex AI does
+        # accept it, so it goes out only there.
+        if self._client.vertexai:
+            kwargs["safety_settings"] = _safety_settings(
+                self.cfg.safety.harm_block_threshold
+            )
         if gem.affective_dialog:
             kwargs["enable_affective_dialog"] = True
         if gem.proactivity:

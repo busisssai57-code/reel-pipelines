@@ -170,9 +170,34 @@ class DirectorConfig:
     idle_prompt_after: float = 45.0
     idle_prompts: tuple[str, ...] = ()
     blocked_words: tuple[str, ...] = ()
+    # Human reading-and-thinking time before a reply. Randomized between the
+    # two so the cadence is not metronomic — an instant, perfectly regular
+    # reply is what reads as a bot to both viewers and the platform.
+    response_delay_min: float = 3.0
+    response_delay_max: float = 6.0
+    # Hard ceiling on turns sent to the model, whatever chat does. Protects
+    # against provider rate limits during a burst.
+    max_turns_per_minute: int = 8
     strip_urls: bool = True
     greet_gifts: bool = True
     greet_follows: bool = True
+
+
+@dataclass(slots=True)
+class SafetyConfig:
+    """Guards on what reaches the model and what the audience hears."""
+
+    use_default_blocklist: bool = True
+    blocklist_file: str = ""
+    extra_terms: tuple[str, ...] = ()
+    block_injection: bool = True
+    # Cut playback mid-word if the streamer's own transcript trips the list.
+    guard_output: bool = True
+    # Gemini-side filtering. BLOCK_MEDIUM_AND_ABOVE is the provider's own
+    # default posture; loosening it is what gets keys revoked.
+    harm_block_threshold: str = "BLOCK_MEDIUM_AND_ABOVE"
+    # Startup reminder to switch on TikTok's AI-generated content label.
+    remind_ai_label: bool = True
 
 
 @dataclass(slots=True)
@@ -236,6 +261,7 @@ class Config:
     audio: AudioConfig = field(default_factory=AudioConfig)
     director: DirectorConfig = field(default_factory=DirectorConfig)
     commerce: CommerceConfig = field(default_factory=CommerceConfig)
+    safety: SafetyConfig = field(default_factory=SafetyConfig)
     log_level: str = "INFO"
 
     @property
@@ -264,6 +290,26 @@ class Config:
         if not 1 <= self.vtube.inject_fps <= 120:
             problems.append("VTS_INJECT_FPS must be between 1 and 120")
         problems.extend(self.commerce.problems())
+        if self.director.response_delay_min < 0:
+            problems.append("DIRECTOR_RESPONSE_DELAY_MIN cannot be negative")
+        if self.director.response_delay_max < self.director.response_delay_min:
+            problems.append(
+                "DIRECTOR_RESPONSE_DELAY_MAX must be >= DIRECTOR_RESPONSE_DELAY_MIN"
+            )
+        if self.director.max_turns_per_minute < 1:
+            problems.append("DIRECTOR_MAX_TURNS_PER_MINUTE must be at least 1")
+        valid_thresholds = {
+            "BLOCK_LOW_AND_ABOVE",
+            "BLOCK_MEDIUM_AND_ABOVE",
+            "BLOCK_ONLY_HIGH",
+            "BLOCK_NONE",
+            "OFF",
+        }
+        if self.safety.harm_block_threshold not in valid_thresholds:
+            problems.append(
+                "SAFETY_HARM_BLOCK_THRESHOLD must be one of "
+                + ", ".join(sorted(valid_thresholds))
+            )
         if problems:
             raise ConfigError(
                 "Configuration problems:\n"
@@ -352,6 +398,20 @@ def load_config(env_file: str | os.PathLike[str] | None = ".env") -> Config:
             strip_urls=_get_bool("DIRECTOR_STRIP_URLS", True),
             greet_gifts=_get_bool("DIRECTOR_GREET_GIFTS", True),
             greet_follows=_get_bool("DIRECTOR_GREET_FOLLOWS", True),
+            response_delay_min=_get_float("DIRECTOR_RESPONSE_DELAY_MIN", 3.0),
+            response_delay_max=_get_float("DIRECTOR_RESPONSE_DELAY_MAX", 6.0),
+            max_turns_per_minute=_get_int("DIRECTOR_MAX_TURNS_PER_MINUTE", 8),
+        ),
+        safety=SafetyConfig(
+            use_default_blocklist=_get_bool("SAFETY_USE_DEFAULT_BLOCKLIST", True),
+            blocklist_file=_get("SAFETY_BLOCKLIST_FILE"),
+            extra_terms=tuple(w.lower() for w in _get_list("SAFETY_EXTRA_TERMS")),
+            block_injection=_get_bool("SAFETY_BLOCK_INJECTION", True),
+            guard_output=_get_bool("SAFETY_GUARD_OUTPUT", True),
+            harm_block_threshold=_get(
+                "SAFETY_HARM_BLOCK_THRESHOLD", "BLOCK_MEDIUM_AND_ABOVE"
+            ).upper(),
+            remind_ai_label=_get_bool("SAFETY_REMIND_AI_LABEL", True),
         ),
         commerce=CommerceConfig(
             enabled=_get_bool("COMMERCE_ENABLED", False),

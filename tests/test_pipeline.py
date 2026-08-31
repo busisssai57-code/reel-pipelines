@@ -154,6 +154,8 @@ async def test_chat_flows_through_the_director_to_a_prompt(rig):
     pipeline._on_chat(
         ChatMessage(user="bob", text="sent 5x Rose", kind="gift", priority=Priority.GIFT)
     )
+    # Skip past the deliberate reply delay; pacing has its own tests.
+    pipeline.director._next_turn_at = 0.0
     prompt = pipeline.director.next_prompt()
     assert prompt is not None
     assert "alice" in prompt and "what game is this?" in prompt
@@ -176,6 +178,49 @@ async def test_director_holds_off_while_the_avatar_is_speaking(rig):
     # The message must still be waiting: we do not talk over ourselves.
     assert pipeline.director.pending == 1
     pipeline.player.interrupt()
+
+
+async def test_unsafe_output_is_cut_mid_sentence(rig):
+    """Native audio plays before a full response exists, so the only real
+    control is cutting playback the moment the transcript goes wrong."""
+    pipeline, _ = rig
+    pipeline.player.feed(speech_like(3.0))
+    await asyncio.sleep(0.25)
+    assert pipeline.player.mouth_open > 0.0
+
+    pipeline._on_turn_start()
+    pipeline._on_text("you should ")
+    assert pipeline.player.pending_bytes > 0, "still speaking, nothing wrong yet"
+    pipeline._on_text("kill yourself")
+
+    assert pipeline._turn_cut
+    assert pipeline.player.pending_bytes == 0, "audio should have been dropped"
+    assert pipeline.player.mouth_open == 0.0
+
+
+async def test_safe_output_is_not_cut(rig):
+    pipeline, _ = rig
+    pipeline.player.feed(speech_like(1.0))
+    await asyncio.sleep(0.2)
+    pipeline._on_turn_start()
+    pipeline._on_text("Hey everyone, welcome in! ")
+    pipeline._on_text("What are we playing today?")
+
+    assert not pipeline._turn_cut
+    assert pipeline.player.pending_bytes > 0
+    await drain(pipeline)
+
+
+async def test_a_cut_turn_does_not_reappear_in_the_next_one(rig):
+    pipeline, _ = rig
+    pipeline._on_turn_start()
+    pipeline._on_text("kill yourself")
+    assert pipeline._turn_cut
+
+    pipeline._on_turn_start()
+    assert not pipeline._turn_cut
+    pipeline._on_text("Welcome back everyone")
+    assert not pipeline._turn_cut
 
 
 async def test_transcript_is_assembled_across_chunks(rig):

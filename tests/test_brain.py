@@ -57,6 +57,47 @@ def test_live_config_enables_context_compression():
     assert make_brain()[0]._live_config().context_window_compression is not None
 
 
+def test_safety_settings_are_withheld_from_the_developer_api():
+    """The Developer API rejects the whole setup payload if this is sent.
+
+    Regression test for a real outage: the setup message has no
+    safetySettings field, so including it closed the socket with 1007
+    'Unknown name "safetySettings" at setup' before the key was even checked.
+    Every model in the fallback list failed identically, so the streamer could
+    not connect at all.
+    """
+    brain, _ = make_brain()
+    assert brain._client.vertexai is False, "api_key clients are not Vertex"
+    assert not brain._live_config().safety_settings
+
+
+def test_safety_settings_are_sent_on_vertex():
+    """Vertex does accept them, so the threshold still has somewhere to go."""
+    brain, _ = make_brain()
+    brain._client = SimpleNamespace(vertexai=True)
+    settings = brain._live_config().safety_settings
+    assert settings, "no safety settings were sent on Vertex"
+    categories = {str(setting.category) for setting in settings}
+    assert any("HATE_SPEECH" in category for category in categories)
+    assert any("SEXUALLY_EXPLICIT" in category for category in categories)
+    assert any("DANGEROUS_CONTENT" in category for category in categories)
+    assert any("HARASSMENT" in category for category in categories)
+
+
+def test_the_safety_threshold_is_configurable():
+    brain, _ = make_brain()
+    brain._client = SimpleNamespace(vertexai=True)
+    brain.cfg.safety.harm_block_threshold = "BLOCK_LOW_AND_ABOVE"
+    thresholds = {str(s.threshold) for s in brain._live_config().safety_settings}
+    assert all("BLOCK_LOW_AND_ABOVE" in threshold for threshold in thresholds)
+
+
+def test_the_default_threshold_is_not_permissive():
+    from bta.config import SafetyConfig
+
+    assert SafetyConfig().harm_block_threshold == "BLOCK_MEDIUM_AND_ABOVE"
+
+
 def test_optional_features_are_off_by_default():
     config = make_brain()[0]._live_config()
     assert not config.enable_affective_dialog

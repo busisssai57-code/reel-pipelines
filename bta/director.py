@@ -11,10 +11,12 @@ from __future__ import annotations
 import random
 import re
 import time
+from collections import deque
 
 from bta.config import DirectorConfig
 from bta.events import ChatMessage, DroppingQueue
 from bta.log import get_logger
+from bta.safety import ContentGuard
 
 log = get_logger("director")
 
@@ -38,17 +40,52 @@ DEFAULT_IDLE_PROMPTS = (
 class Director:
     """Filters and batches chat into prompts for the brain."""
 
-    def __init__(self, cfg: DirectorConfig, persona_name: str = "Nova") -> None:
+    def __init__(
+        self,
+        cfg: DirectorConfig,
+        persona_name: str = "Nova",
+        guard: ContentGuard | None = None,
+    ) -> None:
         self.cfg = cfg
         self.persona_name = persona_name
+        self.guard = guard
         self.queue = DroppingQueue(cfg.queue_size)
         self._last_seen_from: dict[str, float] = {}
         self._recent_texts: dict[str, float] = {}
         self._recent_events: dict[str, float] = {}
-        self._idle_prompts = cfg.idle_prompts or DEFAULT_IDLE_PROMPTS
+        self._idle_prompts = list(cfg.idle_prompts or DEFAULT_IDLE_PROMPTS)
+        self._unused_idle_prompts: list[str] = []
+        self._last_idle_prompt = ""
         self.last_activity = time.monotonic()
         self.accepted = 0
         self.rejected = 0
+        self.unsafe_rejected = 0
+
+        # Pacing state. Nothing is said before the first delay elapses, so the
+        # streamer does not answer the very first message instantly either.
+        self._next_turn_at = time.monotonic() + cfg.response_delay_min
+        self._turn_times: deque[float] = deque(maxlen=max(1, cfg.max_turns_per_minute))
+
+    # -- pacing ------------------------------------------------------------
+
+    def _rate_limited(self, now: float) -> bool:
+        """True if we have already used this minute's budget of turns."""
+        limit = self.cfg.max_turns_per_minute
+        if len(self._turn_times) < limit:
+            return False
+        return now - self._turn_times[0] < 60.0
+
+    def ready(self, now: float | None = None) -> bool:
+        """Whether enough time has passed to speak again."""
+        now = time.monotonic() if now is None else now
+        return now >= self._next_turn_at and not self._rate_limited(now)
+
+    def _mark_spoken(self, now: float) -> None:
+        delay = random.uniform(
+            self.cfg.response_delay_min, max(self.cfg.response_delay_min, self.cfg.response_delay_max)
+        )
+        self._next_turn_at = now + delay
+        self._turn_times.append(now)
 
     # -- filtering ---------------------------------------------------------
 
@@ -91,6 +128,21 @@ class Director:
                 log.debug("Blocked message from %s", message.user)
                 return self._reject()
 
+            # The last stop before anything reaches the provider. Bait that
+            # gets through here is bait the model is asked to refuse, which
+            # costs a turn and shows up in the provider's safety metrics.
+            if self.guard is not None:
+                verdict = self.guard.check_inbound(text)
+                if verdict.blocked:
+                    self.unsafe_rejected += 1
+                    log.warning(
+                        "Dropped %s message from %s (%s)",
+                        verdict.category,
+                        message.user,
+                        verdict.detail,
+                    )
+                    return self._reject()
+
             # One viewer spamming should not crowd everyone else out.
             last = self._last_seen_from.get(message.user)
             if last is not None and now - last < self.cfg.user_cooldown:
@@ -126,19 +178,45 @@ class Director:
 
     # -- batching ----------------------------------------------------------
 
+    def _next_idle_prompt(self) -> str:
+        """Rotate through the idle prompts without repeating back to back.
+
+        Looping the same filler line is one of the clearest bot tells, both to
+        viewers and to spam detection.
+        """
+        if not self._unused_idle_prompts:
+            self._unused_idle_prompts = list(self._idle_prompts)
+            random.shuffle(self._unused_idle_prompts)
+            # Avoid the reshuffle handing back the line we just used.
+            if len(self._unused_idle_prompts) > 1 and self._last_idle_prompt:
+                if self._unused_idle_prompts[-1] == self._last_idle_prompt:
+                    self._unused_idle_prompts.reverse()
+        prompt = self._unused_idle_prompts.pop()
+        self._last_idle_prompt = prompt
+        return prompt
+
     def next_prompt(self, *, now: float | None = None) -> str | None:
-        """The next thing to say, or None if there is nothing to react to."""
+        """The next thing to say, or None if there is nothing to react to.
+
+        Returns None while the response delay or the rate limit is still in
+        effect, so queued chat waits rather than being answered instantly.
+        """
         now = time.monotonic() if now is None else now
+        if not self.ready(now):
+            return None
+
         batch = self.queue.drain(self.cfg.max_batch)
         if batch:
             self.last_activity = now
+            self._mark_spoken(now)
             from bta.brain.persona import format_chat_batch
 
             return format_chat_batch([m.render() for m in batch], self.persona_name)
 
         if now - self.last_activity >= self.cfg.idle_prompt_after:
             self.last_activity = now
-            return random.choice(list(self._idle_prompts))
+            self._mark_spoken(now)
+            return self._next_idle_prompt()
         return None
 
     @property

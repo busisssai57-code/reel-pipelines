@@ -143,6 +143,65 @@ one connects. Pin one with `GEMINI_MODEL` if you prefer.
 
 ---
 
+## Staying on the right side of the platforms
+
+Two accounts are at risk here: your TikTok account, and your Gemini API key.
+Most of this is on by default, but the parts that need a human are listed at
+the end.
+
+**Turn on TikTok's AI-generated content label before you go live.** Undisclosed
+synthetic media breaches TikTok's synthetic media policy. The app reminds you
+at startup; `SAFETY_REMIND_AI_LABEL=false` silences it once it is habit.
+
+**It will not reply faster than a human could read.** Every reply waits
+`DIRECTOR_RESPONSE_DELAY_MIN`–`MAX` seconds (3–6 by default), randomized so
+the cadence is not metronomic. Instant or perfectly regular replies are the
+clearest spam-bot signal there is. `DIRECTOR_MAX_TURNS_PER_MINUTE` (8) is a
+hard ceiling that also keeps you under Gemini's rate limits during a burst.
+
+**It will not loop the same filler line.** Idle prompts rotate through the
+whole set before repeating, and never fire twice in a row.
+
+**Trolls are filtered before they reach Gemini.** `bta/safety.py` drops
+prompt-injection attempts ("ignore all previous instructions", "developer
+mode", "reveal your prompt") and a blocklist covering self-harm baiting,
+sexual content, weapons and drug instructions, and hate framing. Simple
+evasion — `k.y.s`, `kyyyys`, `k y s` — is normalized away. Bait that never
+reaches the model is bait the model never has to refuse, which keeps your
+provider safety metrics clean.
+
+The default list is deliberately tight: filtering every mild swear would make
+the stream lifeless, and a boring bot is its own kind of failure. Put slurs and
+anything stream-specific in a `SAFETY_BLOCKLIST_FILE` rather than in the repo.
+
+**The streamer gets cut off if it says something bad.** Native audio starts
+playing before a full response exists, so there is no reviewing it first. The
+transcript is checked as it arrives and playback is dropped mid-word if it
+trips the list — turning a sentence the audience hears into a syllable. This
+is a backstop, not the main defence; the inbound filter and the persona rules
+are.
+
+**Provider-side filtering is not yours to configure here.** A Live session
+opened with a `GEMINI_API_KEY` has no safety-settings field — sending one is
+rejected outright and the streamer never connects, so the app only sends
+`SAFETY_HARM_BLOCK_THRESHOLD` when running against Vertex AI. Google still
+filters server-side at its own default posture; you simply cannot tighten or
+loosen it from a Developer API key. That is exactly why the guards above are
+not decoration: on the documented setup, they are the filtering you control.
+
+`python run.py --check` reports all of this, and actually fires injection and
+bait probes through the guard rather than just saying it is configured.
+
+### What still needs you
+
+- **Toggle the TikTok AI label.** Nothing in the code can do this for you.
+- **Watch your first few streams.** Do not walk away until you have seen how
+  it handles a real chat, including a real troll. Run with `AUDIO_SINK=null`
+  to watch transcripts in the log without broadcasting while you tune.
+- **Read the log.** Dropped messages are logged with the reason, and an
+  output cut is logged at ERROR. Both tell you whether your settings are too
+  loose or too tight.
+
 ## Selling during a stream
 
 Set `COMMERCE_ENABLED=true` and declare stock plus a gift mapping:
@@ -213,7 +272,7 @@ pipeline.commerce.subscribe(lambda order, change: overlay.push(order))
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest              # 228 tests, no network or API key needed
+python -m pytest              # 302 tests, no network or API key needed
 ```
 
 Tests run entirely offline (`tests/fulfillment/` belongs to the fulfillment

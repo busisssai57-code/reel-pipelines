@@ -20,6 +20,7 @@ from bta.config import Config
 from bta.director import Director
 from bta.events import ChatMessage
 from bta.log import get_logger
+from bta.safety import ContentGuard, load_blocklist_file
 
 log = get_logger("pipeline")
 
@@ -35,7 +36,19 @@ class Pipeline:
         self.cfg = cfg
         self.use_console_source = use_console_source
 
-        self.director = Director(cfg.director, persona_name=cfg.gemini.persona_name)
+        self.guard: ContentGuard | None = None
+        if cfg.safety.use_default_blocklist or cfg.safety.extra_terms or cfg.safety.blocklist_file:
+            self.guard = ContentGuard(
+                extra_terms=cfg.safety.extra_terms
+                + load_blocklist_file(cfg.safety.blocklist_file),
+                use_defaults=cfg.safety.use_default_blocklist,
+                block_injection=cfg.safety.block_injection,
+                guard_output=cfg.safety.guard_output,
+            )
+
+        self.director = Director(
+            cfg.director, persona_name=cfg.gemini.persona_name, guard=self.guard
+        )
         self.sink = build_sink(cfg.audio)
         self.player = SpeechPlayer(
             self.sink,
@@ -56,6 +69,7 @@ class Pipeline:
         self._stop = asyncio.Event()
         self._tasks: list[asyncio.Task] = []
         self._transcript = ""
+        self._turn_cut = False
         self.started_at = time.monotonic()
 
     # -- brain callbacks ---------------------------------------------------
@@ -64,7 +78,7 @@ class Pipeline:
         return BrainCallbacks(
             on_audio=self.player.feed,
             on_text=self._on_text,
-            on_turn_start=lambda: log.debug("Speaking..."),
+            on_turn_start=self._on_turn_start,
             on_turn_complete=self._on_turn_complete,
             on_interrupted=self._on_interrupted,
             on_ready=lambda model: log.info("Brain ready on %s", model),
@@ -72,15 +86,37 @@ class Pipeline:
 
     def _on_text(self, text: str) -> None:
         self._transcript += text
+        if self.guard is None or self._turn_cut:
+            return
+        # Native audio starts playing before a full response exists, so the
+        # only real control is to cut the moment the transcript goes wrong.
+        # That turns a sentence the audience hears into a syllable.
+        verdict = self.guard.check_outbound(self._transcript)
+        if verdict.blocked:
+            self._turn_cut = True
+            log.error(
+                "Cut the streamer mid-sentence: output tripped %s (%s)",
+                verdict.category,
+                verdict.detail,
+            )
+            self.player.interrupt()
+            self._transcript = ""
+
+    def _on_turn_start(self) -> None:
+        self._turn_cut = False
+        log.debug("Speaking...")
 
     def _on_turn_complete(self) -> None:
         line = " ".join(self._transcript.split())
         self._transcript = ""
+        if self._turn_cut:
+            return
         if line:
             log.info("%s: %s", self.cfg.gemini.persona_name, line)
 
     def _on_interrupted(self) -> None:
         self._transcript = ""
+        self._turn_cut = False
         self.player.interrupt()
 
     def _announce(self, text: str) -> None:
@@ -195,6 +231,13 @@ class Pipeline:
 
     async def run(self) -> None:
         log.info("Starting BTA streamer as '%s'", self.cfg.gemini.persona_name)
+        if self.cfg.safety.remind_ai_label and not self.use_console_source:
+            log.warning(
+                "Before you go live: turn on TikTok's AI-generated content label. "
+                "Undisclosed synthetic media breaches TikTok's synthetic media "
+                "policy and risks the account. Set SAFETY_REMIND_AI_LABEL=false "
+                "to silence this."
+            )
         self.player.start()
         self.source = self._build_source()
 
