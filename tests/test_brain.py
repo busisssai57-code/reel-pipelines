@@ -213,6 +213,59 @@ async def test_transcription_reaches_the_text_callback():
     assert "".join(captured["text"]) == "hello chat"
 
 
+def text_part_message(text: str, *, thought: bool):
+    part = SimpleNamespace(inline_data=None, text=text, thought=thought)
+    return SimpleNamespace(
+        server_content=SimpleNamespace(
+            model_turn=SimpleNamespace(parts=[part]),
+            turn_complete=False,
+            interrupted=False,
+            output_transcription=None,
+        ),
+        session_resumption_update=None,
+        go_away=None,
+    )
+
+
+async def test_thinking_is_not_treated_as_speech():
+    """The model's private reasoning never reaches the audio, so it must not
+    reach the transcript either.
+
+    Regression test for a real leak seen against a live session: thought parts
+    were forwarded as spoken text, which put an internal monologue
+    ("**Crafting a Response** Okay, Alice asked...") in the log as though it
+    had gone out on stream. Worse, the pipeline feeds this text to the
+    outbound guard, so a blocked term the model merely reasoned about while
+    deciding to deflect would have cut live audio mid-word for something the
+    audience never heard.
+    """
+    brain, captured = make_brain()
+    await brain._receive_loop(
+        FakeSession(
+            [
+                text_part_message("**Crafting a Response** I should deflect", thought=True),
+                control_message(output_transcription=SimpleNamespace(text="nice try!")),
+                control_message(turn_complete=True),
+            ]
+        )
+    )
+    assert "".join(captured["text"]) == "nice try!"
+
+
+async def test_plain_text_parts_still_reach_the_callback():
+    """Only thinking is filtered — ordinary text output is still speech."""
+    brain, captured = make_brain()
+    await brain._receive_loop(
+        FakeSession(
+            [
+                text_part_message("hello chat", thought=False),
+                control_message(turn_complete=True),
+            ]
+        )
+    )
+    assert "".join(captured["text"]) == "hello chat"
+
+
 async def test_interruption_is_reported():
     brain, captured = make_brain()
     await brain._receive_loop(

@@ -297,7 +297,17 @@ class GeminiLiveBrain:
                             self.speaking = True
                             self.callbacks.on_turn_start()
                         self.callbacks.on_audio(blob.data)
-                    if part.text:
+                    # Thinking parts are the model's private reasoning and
+                    # never reach the audio -- verified against a live session:
+                    # the returned audio matches the spoken transcript alone.
+                    # Forwarding them would put an internal monologue in the
+                    # log as though it had gone out on stream, and would feed
+                    # the outbound guard words the audience never hears, so a
+                    # blocked term the model merely thought about while
+                    # deciding to deflect would cut the audio mid-word.
+                    # output_transcription below is the authoritative record of
+                    # what was actually said.
+                    if part.text and not part.thought:
                         self.callbacks.on_text(part.text)
 
             if content.output_transcription is not None:

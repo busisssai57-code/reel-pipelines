@@ -272,7 +272,7 @@ pipeline.commerce.subscribe(lambda order, change: overlay.push(order))
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest              # 302 tests, no network or API key needed
+python -m pytest              # 304 tests, no network or API key needed
 ```
 
 Tests run entirely offline (`tests/fulfillment/` belongs to the fulfillment
@@ -296,6 +296,10 @@ python -m tools.mock_vts --port 8001 --verbose
   before they ever reach the model.
 - **It will not talk over itself.** A new turn only starts once the previous
   one has finished playing.
+- **The log is what was said, not what was thought.** These models reason
+  before answering, and that reasoning arrives on the same stream as the
+  speech. It is dropped: the transcript you read is the audio the audience
+  heard, so the guard cannot cut a stream over a word the model only thought.
 - **Prompt injection is expected.** Viewer messages are framed as data and the
   persona is told to ignore instructions coming from chat.
 - **Long streams are handled.** Live sessions are time-limited, so the app
